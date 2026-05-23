@@ -9,6 +9,7 @@ type Props = {
   onStatusChange?: (available: boolean | null) => void;
   disabled?: boolean;
   label?: string;
+  dark?: boolean;
 };
 
 const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
@@ -19,6 +20,7 @@ export default function UsernameField({
   onStatusChange,
   disabled,
   label = 'Nombre de usuario',
+  dark = false,
 }: Props) {
   const [status, setStatus] = useState<AvailabilityStatus>('idle');
   const [normalized, setNormalized] = useState('');
@@ -64,12 +66,23 @@ export default function UsernameField({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  const borderClass =
-    status === 'available'
-      ? 'border-green-400 focus:ring-green-400'
-      : status === 'taken' || status === 'invalid' || status === 'error'
-      ? 'border-red-400 focus:ring-red-400'
-      : 'border-gray-200 focus:ring-indigo-500';
+  const isError = status === 'taken' || status === 'invalid' || status === 'error';
+
+  const borderStyle = dark
+    ? {
+        available: { borderColor: '#4ADE80' },
+        error: { borderColor: '#F87171' },
+        default: { borderColor: 'rgba(255,255,255,0.12)' },
+      }[status === 'available' ? 'available' : isError ? 'error' : 'default']
+    : undefined;
+
+  const borderClass = dark
+    ? ''
+    : status === 'available'
+    ? 'border-green-400 focus:ring-green-400'
+    : isError
+    ? 'border-red-400 focus:ring-red-400'
+    : 'border-gray-200 focus:ring-indigo-500';
 
   const hint =
     status === 'idle'
@@ -84,12 +97,68 @@ export default function UsernameField({
       ? 'Solo letras minúsculas, números y _ (3-30 caracteres)'
       : apiMessage || 'Error al verificar disponibilidad';
 
-  const hintColor =
-    status === 'available'
-      ? 'text-green-600'
-      : status === 'taken' || status === 'invalid' || status === 'error'
-      ? 'text-red-500'
-      : 'text-gray-400';
+  const hintColor = dark
+    ? status === 'available'
+      ? '#4ADE80'
+      : isError
+      ? '#F87171'
+      : '#64748B'
+    : status === 'available'
+    ? 'text-green-600'
+    : isError
+    ? 'text-red-500'
+    : 'text-gray-400';
+
+  if (dark) {
+    return (
+      <div>
+        <label className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>
+          {label}
+        </label>
+        <div className="relative">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium select-none pointer-events-none" style={{ color: '#475569' }}>
+            @
+          </span>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            placeholder="tu_usuario"
+            autoComplete="username"
+            className="w-full pl-8 pr-10 py-3 rounded-xl text-sm transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid',
+              color: '#F8FAFC',
+              ...borderStyle,
+            }}
+            onFocus={(e) => {
+              if (status !== 'available' && !isError) {
+                e.currentTarget.style.borderColor = '#6366F1';
+                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)';
+              }
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.boxShadow = 'none';
+              if (status !== 'available' && !isError) {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+              }
+            }}
+          />
+          {status === 'checking' && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" style={{ color: '#64748B' }}>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            </span>
+          )}
+        </div>
+        {hint && <p className="text-xs mt-1.5" style={{ color: hintColor as string }}>{hint}</p>}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -116,7 +185,7 @@ export default function UsernameField({
           </span>
         )}
       </div>
-      {hint && <p className={`text-xs mt-1.5 ${hintColor}`}>{hint}</p>}
+      {hint && <p className={`text-xs mt-1.5 ${hintColor as string}`}>{hint}</p>}
     </div>
   );
 }
