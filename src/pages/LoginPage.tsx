@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { auth, googleProvider } from '../lib/firebase';
 import { createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from '../utils/institutionalEmail';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function LoginPage() {
     if (!emailTrimmed) return 'El correo electrónico es obligatorio.';
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(emailTrimmed)) return 'Por favor, ingresa un correo electrónico válido.';
+    if (!isInstitutionalEmail(emailTrimmed)) return INSTITUTIONAL_EMAIL_HINT;
     if (!password) return 'La contraseña es obligatoria.';
     if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
     return null;
@@ -35,9 +37,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const idToken = await credential.user.getIdToken();
+      const idToken = await credential.user.getIdToken(true);
       const result = await createSession(idToken);
-      if (result.needsUsername) {
+      if (result.needsUsername) { 
         markNeedsUsername(result.user);
         toast.success('Sesión iniciada. Por favor configura tu nombre de usuario.');
         navigate('/username-setup', { replace: true });
@@ -49,6 +51,7 @@ export default function LoginPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al iniciar sesión';
       toast.error(mapFirebaseClientError(msg));
+      await auth.signOut().catch(() => undefined);
     } finally {
       setLoading(false);
     }
@@ -58,7 +61,13 @@ export default function LoginPage() {
     setGoogleLoading(true);
     try {
       const credential = await signInWithPopup(auth, googleProvider);
-      const idToken = await credential.user.getIdToken();
+      const googleEmail = credential.user.email ?? '';
+      if (!isInstitutionalEmail(googleEmail)) {
+        await auth.signOut();
+        toast.error(INSTITUTIONAL_EMAIL_HINT);
+        return;
+      }
+      const idToken = await credential.user.getIdToken(true);
       const result = await createSession(idToken);
       if (result.needsUsername) {
         markNeedsUsername(result.user);
@@ -72,6 +81,7 @@ export default function LoginPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error con Google';
       if (!msg.includes('popup-closed')) toast.error(msg);
+      await auth.signOut().catch(() => undefined);
     } finally {
       setGoogleLoading(false);
     }

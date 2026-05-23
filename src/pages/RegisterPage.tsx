@@ -6,6 +6,7 @@ import { auth, googleProvider } from '../lib/firebase';
 import { registerStudent, createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import UsernameField from '../components/UsernameField';
+import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from '../utils/institutionalEmail';
 
 const PASSWORD_RE = /^(?=.*[A-Za-zÁÉÍÓÚáéíóúÑñ])(?=.*\d).+$/;
 
@@ -46,6 +47,7 @@ export default function RegisterPage() {
 
   function validateStep2(): string | null {
     if (!form.email.trim()) return 'El correo es obligatorio.';
+    if (!isInstitutionalEmail(form.email.trim())) return INSTITUTIONAL_EMAIL_HINT;
     if (form.password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
     if (!PASSWORD_RE.test(form.password)) return 'La contraseña debe incluir al menos una letra y un número.';
     return null;
@@ -93,7 +95,13 @@ export default function RegisterPage() {
     setGoogleLoading(true);
     try {
       const credential = await signInWithPopup(auth, googleProvider);
-      const idToken = await credential.user.getIdToken();
+      const googleEmail = credential.user.email ?? '';
+      if (!isInstitutionalEmail(googleEmail)) {
+        await auth.signOut();
+        toast.error(INSTITUTIONAL_EMAIL_HINT);
+        return;
+      }
+      const idToken = await credential.user.getIdToken(true);
       const result = await createSession(idToken);
       if (result.needsUsername) {
         markNeedsUsername(result.user);
@@ -107,6 +115,7 @@ export default function RegisterPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error con Google';
       if (!msg.includes('popup-closed')) toast.error(msg);
+      await auth.signOut().catch(() => undefined);
     } finally {
       setGoogleLoading(false);
     }
