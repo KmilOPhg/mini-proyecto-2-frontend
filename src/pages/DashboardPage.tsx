@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuthStore } from '../store/authStore';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -308,6 +309,7 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await logout();
+    toast.success('Sesión cerrada correctamente.');
     navigate('/login', { replace: true });
   }
 

@@ -38,6 +38,7 @@ export default function UsernameSetupPage() {
 
   async function handleCancel() {
     await logout();
+    toast.success('Sesión cerrada correctamente.');
     navigate('/login', { replace: true });
   }
 
