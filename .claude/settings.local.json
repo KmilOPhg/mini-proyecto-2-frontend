@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Read(//c/Users/sebas/Desktop/mini-proyecto-2-backend/**)"
+    ]
+  }
+}
