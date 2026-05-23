@@ -1,10 +1,310 @@
-import { useAuthStore } from '../store/authStore';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+type RoomColor = 'indigo' | 'violet' | 'sky' | 'emerald' | 'amber' | 'rose';
+type Room = {
+  id: string; title: string; subject: string; host: string;
+  members: number; max: number; status: 'live' | 'scheduled';
+  tags: string[]; color: RoomColor; time: string; desc: string;
+};
+
+const ROOMS: Room[] = [];
+
+const COLOR_GRADIENTS: Record<RoomColor, string> = {
+  indigo:  'linear-gradient(135deg, #4F46E5 0%, #1E1B4B 100%)',
+  violet:  'linear-gradient(135deg, #7C3AED 0%, #2E1065 100%)',
+  sky:     'linear-gradient(135deg, #0284C7 0%, #0C2A4A 100%)',
+  emerald: 'linear-gradient(135deg, #059669 0%, #042F2E 100%)',
+  amber:   'linear-gradient(135deg, #D97706 0%, #3F1F08 100%)',
+  rose:    'linear-gradient(135deg, #E11D48 0%, #4C0519 100%)',
+};
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+function LogoIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id="cfLg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#818CF8" />
+          <stop offset="100%" stopColor="#6366F1" />
+        </linearGradient>
+      </defs>
+      <rect x="2.5" y="2.5" width="19" height="19" rx="6" fill="url(#cfLg)" />
+      <path d="M8 9.5L12 13.5L16 9.5M8 14.5L12 18.5L16 14.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.95" />
+      <circle cx="12" cy="6.5" r="1.4" fill="#fff" opacity="0.95" />
+    </svg>
+  );
+}
+
+const PlusIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+const RoomsIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="5" width="8" height="6" rx="1.5" /><rect x="13" y="5" width="8" height="6" rx="1.5" />
+    <rect x="3" y="13" width="8" height="6" rx="1.5" /><rect x="13" y="13" width="8" height="6" rx="1.5" />
+  </svg>
+);
+const ListIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 5h4v14H4zM10 5h4v14h-4zM16 6l4 1l-3 12l-4-1z" />
+  </svg>
+);
+const UserIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4" /><path d="M4 20c1-4 4.5-6 8-6s7 2 8 6" />
+  </svg>
+);
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ activeTab, setActiveTab, user, onLogout }: {
+  activeTab: string;
+  setActiveTab: (t: string) => void;
+  user: { nombres: string; username: string | null; avatar: string | null } | null;
+  onLogout: () => void;
+}) {
+  return (
+    <aside
+      aria-label="Navegación principal"
+      style={{ background: '#111827', borderRight: '1px solid rgba(148,163,184,0.14)', width: 240 }}
+      className="sticky top-0 h-screen flex flex-col gap-3.5 px-3 py-[18px]"
+    >
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 px-2 pb-3">
+        <LogoIcon />
+        <span style={{
+          fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em',
+          background: 'linear-gradient(180deg, #F8FAFC 0%, #CBD5E1 100%)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+        }}>
+          CrossFlow
+        </span>
+      </div>
+
+      {/* Nav */}
+      <nav aria-label="Secciones" className="flex-1">
+        <ul className="list-none m-0 p-0 flex flex-col gap-0.5">
+          {([
+            ['rooms', 'Salas', <RoomsIcon />, 3],
+            ['profile', 'Perfil', <UserIcon />, null],
+          ] as const).map(([key, label, icon, badge]) => {
+            const active = activeTab === key;
+            return (
+              <li key={key}>
+                <button
+                  onClick={() => setActiveTab(key as string)}
+                  aria-current={active ? 'page' : undefined}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] border-0 text-sm font-medium text-left cursor-pointer transition-colors"
+                  style={{
+                    background: active ? 'rgba(99,102,241,0.14)' : 'transparent',
+                    color: active ? '#F8FAFC' : '#94A3B8',
+                    boxShadow: active ? 'inset 0 0 0 1px rgba(99,102,241,0.22)' : 'none',
+                  }}
+                >
+                  <span style={{ color: active ? '#818CF8' : 'currentColor' }}>{icon}</span>
+                  <span className="flex-1">{label}</span>
+                  {badge && (
+                    <span style={{
+                      fontSize: 10, padding: '2px 6px',
+                      background: 'rgba(99,102,241,0.25)', color: '#C7D2FE',
+                      borderRadius: 999, fontWeight: 600,
+                    }}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      {/* Footer */}
+      <Footer user={user} setActiveTab={setActiveTab} onLogout={onLogout} />
+    </aside>
+  );
+}
+
+
+
+// ─── Room Card ────────────────────────────────────────────────────────────────
+function RoomCard({ r, view }: { r: Room; view: 'grid' | 'list' }) {
+  const grad = COLOR_GRADIENTS[r.color];
+
+  if (view === 'list') {
+    return (
+      <article
+        className="grid items-center gap-4 rounded-[12px] px-3.5 py-2.5 pl-2.5 transition-colors"
+        style={{
+          gridTemplateColumns: '56px 1fr auto auto',
+          background: '#1E293B',
+          border: '1px solid rgba(148,163,184,0.14)',
+        }}
+      >
+        <div className="relative w-14 h-14 rounded-[10px] overflow-hidden flex-none" style={{ background: grad }}>
+          <span className="absolute right-2 bottom-1 text-[22px] font-bold" style={{ color: 'rgba(255,255,255,0.18)', letterSpacing: '-0.04em' }}>
+            {r.subject.slice(0, 2).toUpperCase()}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h3 className="m-0 text-sm font-medium truncate" style={{ color: '#F8FAFC' }}>{r.title}</h3>
+            <LiveChip status={r.status} time={r.time} />
+          </div>
+          <p className="mt-0.5 text-[12.5px]" style={{ color: '#64748B' }}>
+            {r.subject} · {r.host} · {r.members}/{r.max} miembros
+          </p>
+        </div>
+        <div className="flex gap-1.5">
+          {r.tags.map(t => <Tag key={t} label={t} />)}
+        </div>
+        <button
+          className="h-8 px-3 rounded-[9px] text-sm font-medium text-white cursor-pointer"
+          style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
+        >
+          Entrar
+        </button>
+      </article>
+    );
+  }
+
+  return (
+    <article
+      className="relative flex flex-col overflow-hidden rounded-[16px] transition-all duration-200 group cursor-pointer"
+      style={{ background: '#1E293B', border: '1px solid rgba(148,163,184,0.14)' }}
+    >
+      {/* Header with color */}
+      <header className="relative flex items-start justify-between p-3.5" style={{ aspectRatio: '16/7', background: grad }}>
+        {/* Grid overlay */}
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }} />
+        {/* Subject letter */}
+        <span className="absolute right-4 bottom-3 text-[42px] font-bold" style={{ color: 'rgba(255,255,255,0.18)', letterSpacing: '-0.04em', lineHeight: 1 }}>
+          {r.subject.slice(0, 2).toUpperCase()}
+        </span>
+        <div className="relative z-10">
+          <LiveChip status={r.status} time={r.time} />
+        </div>
+      </header>
+
+      {/* Body */}
+      <div className="flex flex-col gap-1.5 px-[18px] pt-4 pb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#818CF8' }}>
+          {r.subject}
+        </span>
+        <h3 className="m-0 text-[15.5px] font-semibold leading-snug" style={{ color: '#F8FAFC', letterSpacing: '-0.01em' }}>
+          {r.title}
+        </h3>
+        <p className="m-0 text-sm leading-relaxed line-clamp-2" style={{ color: '#94A3B8' }}>
+          {r.desc}
+        </p>
+      </div>
+
+      {/* Footer */}
+      <footer className="grid items-center gap-3 px-[18px] pt-3 pb-4" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
+        <div className="flex">
+          {[['MR', '#6366F1'], ['JS', '#38BDF8'], ['AL', '#22C55E']].map(([init, bg], i) => (
+            <span key={i} className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold text-white border-2" style={{ background: bg, borderColor: '#1E293B', marginLeft: i > 0 ? -8 : 0 }}>
+              {init}
+            </span>
+          ))}
+          {r.members > 3 && (
+            <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold border-2" style={{ background: 'rgba(148,163,184,0.15)', color: '#94A3B8', borderColor: '#1E293B', marginLeft: -8 }}>
+              +{r.members - 3}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 text-[12px]" style={{ color: '#64748B' }}>
+          <span>{r.host}</span>
+          <span aria-hidden="true">·</span>
+          <span>{r.members}/{r.max}</span>
+        </div>
+        <button
+          className="h-8 px-3 rounded-[9px] text-[13px] font-medium text-white cursor-pointer"
+          style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
+        >
+          Entrar
+        </button>
+      </footer>
+    </article>
+  );
+}
+
+// ─── New Room Card ────────────────────────────────────────────────────────────
+function NewRoomCard({ view }: { view: 'grid' | 'list' }) {
+  return (
+    <button
+      className="flex items-start justify-center gap-3 p-6 rounded-[16px] text-left cursor-pointer transition-colors group"
+      style={{
+        flexDirection: view === 'list' ? 'row' : 'column',
+        background: 'rgba(148,163,184,0.04)',
+        border: '1.5px dashed rgba(148,163,184,0.28)',
+        color: '#94A3B8',
+        minHeight: view === 'list' ? 60 : 240,
+      }}
+    >
+      <span className="w-10 h-10 rounded-[12px] flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.18)', color: '#818CF8' }}>
+        <PlusIcon size={22} />
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="font-medium" style={{ color: '#F8FAFC' }}>Crear nueva sala</span>
+        <span className="text-[12.5px]" style={{ color: '#64748B' }}>Video, chat y pizarra en segundos</span>
+      </span>
+    </button>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function LiveChip({ status, time }: { status: string; time: string }) {
+  if (status === 'live') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-[9px] py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(127,29,29,0.5)', color: '#FECACA', border: '1px solid rgba(248,113,113,0.4)', backdropFilter: 'blur(8px)' }}>
+        <span className="w-2 h-2 rounded-full" style={{ background: '#F87171', boxShadow: '0 0 0 2px rgba(248,113,113,0.25)', animation: 'pulse 2s ease-in-out infinite' }} />
+        En vivo
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-[9px] py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(15,23,42,0.65)', color: '#94A3B8', border: '1px solid rgba(148,163,184,0.14)', backdropFilter: 'blur(8px)' }}>
+      {time}
+    </span>
+  );
+}
+
+function Tag({ label }: { label: string }) {
+  return (
+    <span className="px-2 py-0.5 rounded-[6px] text-[11px]" style={{ background: 'rgba(148,163,184,0.08)', color: '#94A3B8', border: '1px solid rgba(148,163,184,0.14)' }}>
+      {label}
+    </span>
+  );
+}
+
+// ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const user = useAuthStore(s => s.user);
+  const logout = useAuthStore(s => s.logout);
+
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<'all' | 'live' | 'scheduled'>('all');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [activeTab, setActiveTab] = useState('rooms');
+
+  const filtered = useMemo(() =>
+    ROOMS.filter(r =>
+      (filter === 'all' || r.status === filter) &&
+      (q === '' || (r.title + r.subject + r.host).toLowerCase().includes(q.toLowerCase()))
+    ), [q, filter]
+  );
+
+  const liveCount = ROOMS.filter(r => r.status === 'live').length;
 
   async function handleLogout() {
     await logout();
@@ -12,91 +312,97 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="font-bold text-gray-900">CrossFlow</span>
-        </div>
+    <>
+      <style>{`
+        @keyframes pulse {
+          0%,100% { box-shadow: 0 0 0 2px rgba(248,113,113,0.25); }
+          50% { box-shadow: 0 0 0 5px rgba(248,113,113,0.05); }
+        }
+      `}</style>
+      <div className="grid min-h-screen" style={{ gridTemplateColumns: '240px 1fr', background: '#0F172A' }}>
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} onLogout={handleLogout} />
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.nombres}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-100"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                {user?.nombres?.charAt(0).toUpperCase() ?? 'U'}
+        <main id="main" className="min-w-0 flex flex-col" style={{ color: '#F8FAFC' }}>
+          <Header q={q} setQ={setQ} user={user} />
+
+          {/* Body */}
+          <div className="p-7 flex flex-col gap-8 w-full max-w-[1480px] mx-auto">
+            <section aria-labelledby="rooms-h">
+              {/* Section header */}
+              <header className="flex items-end justify-between gap-4 mb-4">
+                <div>
+                  <h2 id="rooms-h" className="m-0 text-lg font-semibold" style={{ letterSpacing: '-0.01em', color: '#F8FAFC' }}>
+                    Salas colaborativas
+                  </h2>
+                  <p className="mt-1 text-[13px]" style={{ color: '#64748B' }}>
+                    {filtered.length} disponibles · {liveCount} en vivo
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  {/* Filter tabs */}
+                  <div
+                    role="tablist"
+                    aria-label="Filtrar salas"
+                    className="inline-flex p-[3px] gap-0.5 rounded-[10px]"
+                    style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(148,163,184,0.14)' }}
+                  >
+                    {([['all', 'Todas'], ['live', 'En vivo'], ['scheduled', 'Programadas']] as const).map(([v, l]) => (
+                      <button
+                        key={v}
+                        role="tab"
+                        aria-selected={filter === v}
+                        onClick={() => setFilter(v)}
+                        className="px-3 py-1.5 rounded-[7px] text-[13px] font-medium cursor-pointer border-0 transition-colors"
+                        style={{
+                          background: filter === v ? 'rgba(99,102,241,0.18)' : 'transparent',
+                          color: filter === v ? '#818CF8' : '#94A3B8',
+                        }}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* View toggle */}
+                  <div
+                    role="tablist"
+                    aria-label="Vista"
+                    className="inline-flex p-[3px] gap-0.5 rounded-[10px]"
+                    style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(148,163,184,0.14)' }}
+                  >
+                    <button
+                      role="tab" aria-selected={view === 'grid'} aria-label="Cuadrícula"
+                      onClick={() => setView('grid')}
+                      className="p-1.5 rounded-[7px] cursor-pointer border-0 transition-colors"
+                      style={{ background: view === 'grid' ? 'rgba(99,102,241,0.18)' : 'transparent', color: view === 'grid' ? '#818CF8' : '#94A3B8' }}
+                    >
+                      <RoomsIcon size={14} />
+                    </button>
+                    <button
+                      role="tab" aria-selected={view === 'list'} aria-label="Lista"
+                      onClick={() => setView('list')}
+                      className="p-1.5 rounded-[7px] cursor-pointer border-0 transition-colors"
+                      style={{ background: view === 'list' ? 'rgba(99,102,241,0.18)' : 'transparent', color: view === 'list' ? '#818CF8' : '#94A3B8' }}
+                    >
+                      <ListIcon />
+                    </button>
+                  </div>
+                </div>
+              </header>
+
+              {/* Room cards */}
+              <div
+                className={view === 'grid' ? 'grid gap-4' : 'flex flex-col gap-2'}
+                style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' } : {}}
+              >
+                {filtered.map(r => <RoomCard key={r.id} r={r} view={view} />)}
+                <NewRoomCard view={view} />
               </div>
-            )}
-            <span className="text-sm font-medium text-gray-700 hidden sm:block">
-              @{user?.username}
-            </span>
+            </section>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-500 hover:text-gray-900 transition flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Salir
-          </button>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="max-w-4xl mx-auto px-6 py-12">
-        {/* Welcome card */}
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-8 text-white mb-8">
-          <p className="text-indigo-200 text-sm font-medium mb-1">Bienvenido de vuelta</p>
-          <h1 className="text-3xl font-bold mb-1">
-            ¡Hola, {user?.nombres}! 👋
-          </h1>
-          <p className="text-indigo-200 text-sm">
-            {user?.email} · @{user?.username}
-          </p>
-        </div>
-
-        {/* Stats placeholder */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {[
-            { label: 'Cursos activos', value: '0', icon: '📚' },
-            { label: 'Tareas pendientes', value: '0', icon: '✅' },
-            { label: 'Días de racha', value: '0', icon: '🔥' },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex items-center gap-4">
-              <span className="text-3xl">{s.icon}</span>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-xs text-gray-500 font-medium">{s.label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Empty state */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-          <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Tu dashboard está listo</h2>
-          <p className="text-gray-500 text-sm max-w-xs mx-auto">
-            Pronto encontrarás aquí tus cursos, tareas y progreso de aprendizaje.
-          </p>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }

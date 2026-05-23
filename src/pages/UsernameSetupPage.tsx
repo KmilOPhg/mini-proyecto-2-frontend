@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { auth } from '../lib/firebase';
 import { completeGoogleUsername } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -14,13 +15,11 @@ export default function UsernameSetupPage() {
   const [username, setUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!usernameAvailable) return;
 
-    setError('');
     setLoading(true);
     try {
       const firebaseUser = auth.currentUser;
@@ -28,9 +27,10 @@ export default function UsernameSetupPage() {
       const idToken = await firebaseUser.getIdToken();
       const result = await completeGoogleUsername(idToken, username.trim());
       setSession(result.token, result.user);
+      toast.success('¡Nombre de usuario configurado con éxito!');
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar el nombre de usuario');
+      toast.error(err instanceof Error ? err.message : 'Error al guardar el nombre de usuario');
     } finally {
       setLoading(false);
     }
@@ -87,12 +87,6 @@ export default function UsernameSetupPage() {
         <p className="text-gray-500 text-sm mb-7">
           Este nombre te identificará en CrossFlow. Solo letras minúsculas, números y guion bajo (3–30 caracteres).
         </p>
-
-        {error && (
-          <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
           <UsernameField

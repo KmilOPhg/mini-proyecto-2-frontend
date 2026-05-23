@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithCustomToken, signInWithPopup } from 'firebase/auth';
+import { toast } from 'sonner';
 import { auth, googleProvider } from '../lib/firebase';
 import { registerStudent, createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -27,7 +28,6 @@ export default function RegisterPage() {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
 
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -51,9 +51,8 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+    if (validationError) { toast.error(validationError); return; }
 
-    setError('');
     setLoading(true);
     try {
       const { customToken } = await registerStudent({
@@ -70,17 +69,17 @@ export default function RegisterPage() {
       const result = await createSession(idToken);
       if (!result.needsUsername) {
         setSession(result.token, result.user);
+        toast.success('¡Registro exitoso! Bienvenido a CrossFlow.');
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrarse');
+      toast.error(err instanceof Error ? err.message : 'Error al registrarse');
     } finally {
       setLoading(false);
     }
   }
 
   async function handleGoogle() {
-    setError('');
     setGoogleLoading(true);
     try {
       const credential = await signInWithPopup(auth, googleProvider);
@@ -88,14 +87,16 @@ export default function RegisterPage() {
       const result = await createSession(idToken);
       if (result.needsUsername) {
         markNeedsUsername(result.user);
+        toast.success('Iniciando con Google. Por favor, completa tu nombre de usuario.');
         navigate('/username-setup', { replace: true });
       } else {
         setSession(result.token, result.user);
+        toast.success('¡Registro exitoso con Google!');
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error con Google';
-      if (!msg.includes('popup-closed')) setError(msg);
+      if (!msg.includes('popup-closed')) toast.error(msg);
     } finally {
       setGoogleLoading(false);
     }
@@ -118,12 +119,6 @@ export default function RegisterPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900 mb-1">Crear cuenta</h1>
         <p className="text-gray-500 text-sm mb-7">Completa tus datos para registrarte.</p>
-
-        {error && (
-          <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Nombres + Apellidos */}

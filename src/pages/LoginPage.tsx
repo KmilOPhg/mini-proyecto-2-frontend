@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { toast } from 'sonner';
 import { auth, googleProvider } from '../lib/firebase';
 import { createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -17,11 +18,33 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
+
+  function validate(): string | null {
+    const emailTrimmed = email.trim();
+    if (!emailTrimmed) {
+      return 'El correo electrónico es obligatorio.';
+    }
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(emailTrimmed)) {
+      return 'Por favor, ingresa un correo electrónico válido.';
+    }
+    if (!password) {
+      return 'La contraseña es obligatoria.';
+    }
+    if (password.length < 8) {
+      return 'La contraseña debe tener al menos 8 caracteres.';
+    }
+    return null;
+  }
 
   async function handleEmailLogin(e: React.SyntheticEvent) {
     e.preventDefault();
-    setError('');
+    const validationError = validate();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setLoading(true);
     try {
       const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -29,21 +52,22 @@ export default function LoginPage() {
       const result = await createSession(idToken);
       if (result.needsUsername) {
         markNeedsUsername(result.user);
+        toast.success('Sesión iniciada. Por favor configura tu nombre de usuario.');
         navigate('/username-setup', { replace: true });
       } else {
         setSession(result.token, result.user);
+        toast.success('¡Bienvenido de nuevo!');
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al iniciar sesión';
-      setError(mapFirebaseClientError(msg));
+      toast.error(mapFirebaseClientError(msg));
     } finally {
       setLoading(false);
     }
   }
 
   async function handleGoogleLogin() {
-    setError('');
     setGoogleLoading(true);
     try {
       const credential = await signInWithPopup(auth, googleProvider);
@@ -51,14 +75,16 @@ export default function LoginPage() {
       const result = await createSession(idToken);
       if (result.needsUsername) {
         markNeedsUsername(result.user);
+        toast.success('Sesión iniciada con Google. Configura tu nombre de usuario.');
         navigate('/username-setup', { replace: true });
       } else {
         setSession(result.token, result.user);
+        toast.success('¡Bienvenido de nuevo!');
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error con Google';
-      if (!msg.includes('popup-closed')) setError(msg);
+      if (!msg.includes('popup-closed')) toast.error(msg);
     } finally {
       setGoogleLoading(false);
     }
@@ -72,12 +98,6 @@ export default function LoginPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900 mb-1">Bienvenido de nuevo</h1>
         <p className="text-gray-500 text-sm mb-8">Ingresa tus credenciales para continuar.</p>
-
-        {error && (
-          <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleEmailLogin} noValidate className="space-y-4">
           <div>
@@ -133,7 +153,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || googleLoading || !email || !password}
+            disabled={loading || googleLoading}
             className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 active:bg-indigo-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading && (
