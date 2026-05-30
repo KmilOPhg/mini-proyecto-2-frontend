@@ -13,7 +13,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { getUserDisplayName } from '../utils/userDisplay';
 
-export type UsuarioEnLinea = { uid: string; nombre: string };
+export type UsuarioEnLinea = { uid: string; nombre: string; avatar?: string | null };
 
 type UseRoomChatOptions = {
   onSalaTerminada?: (mensaje: string) => void;
@@ -66,7 +66,15 @@ export function useRoomChat(
         };
 
         onPresencia = (data: { salaId: string; usuarios: UsuarioEnLinea[] }) => {
-          if (data.salaId === salaId) setUsuariosEnLinea(data.usuarios);
+          if (data.salaId !== salaId) return;
+          const enriched = user
+            ? data.usuarios.map(u =>
+                u.uid === user.id
+                  ? { ...u, nombre: getUserDisplayName(user), avatar: user.avatar ?? u.avatar ?? null }
+                  : u,
+              )
+            : data.usuarios;
+          setUsuariosEnLinea(enriched);
         };
 
         onReconnect = () => {
@@ -122,10 +130,10 @@ export function useRoomChat(
     if (!user || !chatReady || !salaId || !displayName) return;
 
     setUsuariosEnLinea(prev =>
-      prev.map(u => (u.uid === user.id ? { ...u, nombre: displayName } : u)),
+      prev.map(u => (u.uid === user.id ? { ...u, nombre: displayName, avatar: user.avatar ?? null } : u)),
     );
     refreshPresenceSocket().catch(() => {});
-  }, [displayName, user, chatReady, salaId]);
+  }, [displayName, user?.avatar, user, chatReady, salaId]);
 
   const sendMensaje = useCallback(
     async (texto: string) => {

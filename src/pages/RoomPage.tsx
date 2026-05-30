@@ -109,24 +109,48 @@ function PanelToggle({ label, active, onClick, children, comingSoon }: {
   );
 }
 
-function SphereAvatar({ uid, size = 72 }: { uid: string; size?: number }) {
-  const grad = participantGradientFromUid(uid);
+function ParticipantAvatar({ usuario, size = 72 }: { usuario: UsuarioEnLinea; size?: number }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = getInitials(usuario.nombre);
+  const gradient = participantGradientFromUid(usuario.uid);
+  const avatarUrl = usuario.avatar?.trim();
+
+  if (avatarUrl && !imgError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        onError={() => setImgError(true)}
+        className="rounded-full object-cover flex-shrink-0"
+        style={{
+          width: size,
+          height: size,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.35), inset 0 0 0 2px rgba(255,255,255,0.12)',
+        }}
+      />
+    );
+  }
+
   return (
     <div
-      className="rounded-full flex-shrink-0"
+      className="rounded-full flex items-center justify-center flex-shrink-0"
       style={{
         width: size,
         height: size,
-        background: grad,
-        boxShadow: 'inset -8px -8px 20px rgba(0,0,0,0.35), inset 4px 4px 12px rgba(255,255,255,0.12)',
+        background: gradient,
+        boxShadow: 'inset -6px -6px 16px rgba(0,0,0,0.35), inset 3px 3px 10px rgba(255,255,255,0.12)',
       }}
     >
-      <div
-        className="w-full h-full rounded-full"
+      <span
+        className="font-bold select-none"
         style={{
-          background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.08) 45%, transparent 70%)',
+          fontSize: size * 0.32,
+          color: 'rgba(255,255,255,0.85)',
+          letterSpacing: '-0.03em',
         }}
-      />
+      >
+        {initials}
+      </span>
     </div>
   );
 }
@@ -138,7 +162,6 @@ function ParticipantTile({
   isYou: boolean;
   isHost: boolean;
 }) {
-  const initials = getInitials(usuario.nombre);
   const gradient = participantGradientFromUid(usuario.uid);
 
   return (
@@ -161,15 +184,9 @@ function ParticipantTile({
         }}
       />
 
-      {/* Avatar sphere or initials */}
+      {/* Avatar */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        {isYou || isHost ? (
-          <SphereAvatar uid={usuario.uid} size={64} />
-        ) : (
-          <span className="text-[32px] sm:text-[42px] font-bold select-none" style={{ color: 'rgba(255,255,255,0.28)', letterSpacing: '-0.04em' }}>
-            {initials}
-          </span>
-        )}
+        <ParticipantAvatar usuario={usuario} size={64} />
       </div>
 
       {/* Pop-out icon */}
