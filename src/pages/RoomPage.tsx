@@ -143,7 +143,7 @@ function ParticipantTile({
 
   return (
     <div
-      className="relative rounded-[16px] overflow-hidden flex items-end p-3.5 aspect-video"
+      className="relative w-full min-h-[120px] rounded-[16px] overflow-hidden flex items-end p-3 sm:p-3.5 aspect-video"
       style={{
         background: gradient,
         border: isHost
@@ -162,11 +162,11 @@ function ParticipantTile({
       />
 
       {/* Avatar sphere or initials */}
-      <div className="absolute inset-0 flex items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         {isYou || isHost ? (
-          <SphereAvatar uid={usuario.uid} size={80} />
+          <SphereAvatar uid={usuario.uid} size={64} />
         ) : (
-          <span className="text-[42px] font-bold select-none" style={{ color: 'rgba(255,255,255,0.28)', letterSpacing: '-0.04em' }}>
+          <span className="text-[32px] sm:text-[42px] font-bold select-none" style={{ color: 'rgba(255,255,255,0.28)', letterSpacing: '-0.04em' }}>
             {initials}
           </span>
         )}
@@ -182,9 +182,9 @@ function ParticipantTile({
       </ComingSoonButton>
 
       {/* Name label */}
-      <div className="relative z-10 flex items-center gap-1.5">
+      <div className="relative z-10 flex items-center gap-1.5 min-w-0 max-w-full">
         <span
-          className="text-[12.5px] font-medium px-2 py-0.5 rounded-[6px]"
+          className="text-[12px] sm:text-[12.5px] font-medium px-2 py-0.5 rounded-[6px] truncate max-w-full"
           style={{ background: 'rgba(0,0,0,0.5)', color: '#F8FAFC' }}
         >
           {usuario.nombre}
@@ -493,8 +493,8 @@ export default function RoomPage() {
 
         {/* Video + chat (above bottom bar) */}
         <div className="flex flex-1 min-h-0 relative">
-          <main className="flex-1 min-w-0 min-h-0 overflow-y-auto sm:overflow-hidden p-3 sm:p-4">
-            <div className="h-full min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 content-start auto-rows-[minmax(120px,1fr)] sm:auto-rows-[minmax(140px,1fr)]">
+          <main className="flex-1 min-w-0 min-h-0 overflow-y-auto sm:overflow-y-auto p-3 sm:p-4">
+            <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 content-start">
               {!chatReady && participantesOrdenados.length === 0 ? (
                 <div className="col-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
                   <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
