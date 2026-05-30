@@ -136,14 +136,14 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
       tabIndex={-1}
     >
       <div
-        className="w-full max-w-[500px] rounded-2xl flex flex-col"
+        className="w-full max-w-[500px] rounded-2xl flex flex-col max-h-[min(92vh,100svh)] overflow-y-auto"
         style={{
           background: '#1A2235',
           border: '1px solid rgba(148,163,184,0.12)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.55)',
         }}
       >
-        <div className="px-7 pt-7 pb-5">
+        <div className="px-5 sm:px-7 pt-5 sm:pt-7 pb-5">
           <div className="flex items-start justify-between">
             <div>
               <h2
@@ -168,7 +168,7 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
           </div>
         </div>
 
-        <div className="px-7 pb-7 flex flex-col gap-5">
+        <div className="px-5 sm:px-7 pb-5 sm:pb-7 flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="create-room-nombre" className="text-[13px] font-medium" style={{ color: '#94A3B8' }}>
               Nombre de la sala
@@ -226,7 +226,7 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
               ID generado
             </p>
             <div
-              className="flex items-center gap-2 px-4 py-3 rounded-[10px]"
+              className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 px-3 sm:px-4 py-3 rounded-[10px]"
               style={{
                 background: '#0F172A',
                 border: '1px solid rgba(148,163,184,0.18)',
@@ -265,7 +265,7 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
             </p>
           </div>
 
-          <div className="flex justify-between gap-3 pt-1">
+          <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}

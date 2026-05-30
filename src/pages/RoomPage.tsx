@@ -395,10 +395,10 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
+    <div className="h-svh flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
       <main id="main" className="flex flex-col flex-1 min-h-0">
       <header
-        className="flex items-center gap-3 px-5 py-3 flex-none"
+        className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 flex-none pt-safe"
         style={{ background: 'rgba(8,14,26,0.95)', borderBottom: '1px solid rgba(148,163,184,0.1)' }}
       >
         <button
@@ -423,7 +423,7 @@ export default function RoomPage() {
               EN VIVO
             </span>
           </div>
-          <div className="flex items-center gap-3 mt-0.5 text-[11.5px]" style={{ color: '#64748B' }}>
+          <div className="hidden md:flex items-center gap-3 mt-0.5 text-[11.5px]" style={{ color: '#64748B' }}>
             <span>ID: <span style={{ color: '#94A3B8' }}>{roomCode}</span></span>
             <span>Anfitrión: <span style={{ color: '#94A3B8' }}>{hostNombre}</span></span>
             <span className="inline-flex items-center gap-1 font-mono tabular-nums" style={{ color: '#818CF8' }}>
@@ -431,25 +431,34 @@ export default function RoomPage() {
               {elapsed}
             </span>
           </div>
+          <div className="flex md:hidden items-center gap-2 mt-0.5 text-[11px]" style={{ color: '#64748B' }}>
+            <span className="font-mono tabular-nums truncate" style={{ color: '#818CF8' }}>{elapsed}</span>
+            <span aria-hidden="true">·</span>
+            <span className="truncate">{onlineCount} en línea</span>
+          </div>
         </div>
 
         {/* Header utility icons */}
-        <div className="flex items-center gap-1 flex-none">
-          <IconBtn label="Cambiar diseño" comingSoon>
-            <IconLayoutGrid size={16} />
-          </IconBtn>
-          <IconBtn label="Copiar enlace" comingSoon>
-            <IconLink size={16} />
-          </IconBtn>
-          <IconBtn label="Participantes" badge={onlineCount} comingSoon>
-            <IconUsers size={16} />
-          </IconBtn>
+        <div className="flex items-center gap-0.5 sm:gap-1 flex-none">
+          <span className="hidden sm:contents">
+            <IconBtn label="Cambiar diseño" comingSoon>
+              <IconLayoutGrid size={16} />
+            </IconBtn>
+            <IconBtn label="Copiar enlace" comingSoon>
+              <IconLink size={16} />
+            </IconBtn>
+            <IconBtn label="Participantes" badge={onlineCount} comingSoon>
+              <IconUsers size={16} />
+            </IconBtn>
+          </span>
           <IconBtn label="Chat" active={chatOpen} badge={mensajes.length} onClick={() => setChatOpen(v => !v)}>
             <IconMessageSquare size={16} />
           </IconBtn>
-          <IconBtn label="Configuración" comingSoon>
-            <IconSettings size={16} />
-          </IconBtn>
+          <span className="hidden sm:contents">
+            <IconBtn label="Configuración" comingSoon>
+              <IconSettings size={16} />
+            </IconBtn>
+          </span>
         </div>
       </header>
 
@@ -457,21 +466,15 @@ export default function RoomPage() {
       <div className="flex flex-col flex-1 min-h-0">
 
         {/* Video + chat (above bottom bar) */}
-        <div className="flex flex-1 min-h-0">
-          <main className="flex-1 min-w-0 min-h-0 overflow-hidden p-4">
-            <div
-              className="h-full grid gap-3 content-start"
-              style={{
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gridAutoRows: 'minmax(140px, 1fr)',
-              }}
-            >
+        <div className="flex flex-1 min-h-0 relative">
+          <main className="flex-1 min-w-0 min-h-0 overflow-y-auto sm:overflow-hidden p-3 sm:p-4">
+            <div className="h-full min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 content-start auto-rows-[minmax(120px,1fr)] sm:auto-rows-[minmax(140px,1fr)]">
               {!chatReady && participantesOrdenados.length === 0 ? (
-                <div className="col-span-3 flex items-center justify-center rounded-[16px] py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                <div className="col-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
                   <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
                 </div>
               ) : participantesOrdenados.length === 0 ? (
-                <div className="col-span-3 flex items-center justify-center rounded-[16px] py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                <div className="col-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
                   <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
                 </div>
               ) : (
@@ -487,10 +490,18 @@ export default function RoomPage() {
             </div>
           </main>
 
-          {/* ── Chat sidebar ── */}
+          {/* ── Chat sidebar / overlay ── */}
           {chatOpen && (
+            <>
+              <button
+                type="button"
+                className="lg:hidden fixed inset-0 z-30 border-0 cursor-pointer"
+                style={{ background: 'rgba(0,0,0,0.55)' }}
+                aria-label="Cerrar chat"
+                onClick={() => setChatOpen(false)}
+              />
             <aside
-              className="w-[340px] flex flex-col flex-none min-h-0"
+              className="fixed inset-y-0 right-0 z-40 w-full max-w-[min(100vw,340px)] flex flex-col min-h-0 lg:static lg:z-auto lg:w-[340px] lg:max-w-none lg:flex-none"
               style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
             >
             {/* Chat header */}
@@ -585,19 +596,19 @@ export default function RoomPage() {
               </button>
             </form>
           </aside>
+            </>
         )}
         </div>
 
         {/* Bottom bar — full width under video and chat */}
         <footer
-          className="grid flex-none items-center px-5 py-3"
+          className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] flex-none items-center px-3 sm:px-5 py-2.5 sm:py-3 pb-safe"
           style={{
-            gridTemplateColumns: '1fr auto 1fr',
             background: '#080E1A',
             borderTop: '1px solid rgba(148,163,184,0.08)',
           }}
         >
-          <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
+          <div className="hidden sm:flex items-center gap-2.5 min-w-0 justify-self-start w-full">
             <div
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full flex-none"
               style={{
@@ -627,7 +638,7 @@ export default function RoomPage() {
           </div>
 
           <div
-            className="flex items-center gap-0.5 px-2 py-1.5 rounded-[20px] justify-self-center"
+            className="flex items-center gap-0.5 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-[20px] justify-self-center w-full sm:w-auto max-w-full overflow-x-auto"
             style={{
               background: 'rgba(15,23,42,0.95)',
               border: '1px solid rgba(148,163,184,0.14)',
@@ -640,13 +651,15 @@ export default function RoomPage() {
             <ControlBtn label="Cámara">
               <IconVideo size={20} strokeWidth={1.75} />
             </ControlBtn>
-            <ControlBtn label="Pantalla">
-              <IconMonitorUp size={20} strokeWidth={1.75} />
-            </ControlBtn>
-            <ControlBtn label="Más">
-              <IconMoreHorizontal size={20} />
-            </ControlBtn>
-            <div className="w-px h-9 mx-1.5" style={{ background: 'rgba(148,163,184,0.18)' }} aria-hidden="true" />
+            <span className="hidden sm:contents">
+              <ControlBtn label="Pantalla">
+                <IconMonitorUp size={20} strokeWidth={1.75} />
+              </ControlBtn>
+              <ControlBtn label="Más">
+                <IconMoreHorizontal size={20} />
+              </ControlBtn>
+            </span>
+            <div className="hidden sm:block w-px h-9 mx-1.5" style={{ background: 'rgba(148,163,184,0.18)' }} aria-hidden="true" />
             <button
               type="button"
               onClick={() => setShowLeaveModal(true)}
@@ -665,7 +678,7 @@ export default function RoomPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 justify-self-end">
+          <div className="hidden lg:flex items-center gap-2 justify-self-end">
             <PanelToggle label="Panel de participantes" comingSoon>
               <IconUsers size={17} />
             </PanelToggle>

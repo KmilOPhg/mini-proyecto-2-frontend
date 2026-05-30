@@ -17,6 +17,14 @@ body {
   min-height: 100svh;
 }
 
+/* Mobile safe areas (notch / home indicator) */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+.pt-safe {
+  padding-top: max(0px, env(safe-area-inset-top, 0px));
+}
+
 /* ── WCAG 2.2 — base accesible ─────────────────────────────────────────────── */
 
 /* 1.3.1 / 4.1.2 — contenido solo para lectores de pantalla */
