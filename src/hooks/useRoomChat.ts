@@ -4,51 +4,63 @@ import type { MensajePublico } from '../services/api';
 import {
   connectSocket,
   disconnectSocket,
+  getActiveSocket,
   joinSalaSocket,
   leaveSalaSocket,
-  onMensajeNuevo,
   sendMensajeSocket,
-  setActiveSala,
-  clearActiveSala,
 } from '../lib/socket';
 import { useAuthStore } from '../store/authStore';
 
 export function useRoomChat(salaId: string | undefined, jwtToken: string | null) {
   const user = useAuthStore(s => s.user);
+
   const [mensajes, setMensajes] = useState<MensajePublico[]>([]);
   const [chatReady, setChatReady] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
-  const genRef = useRef(0);
 
-  const addMensaje = useCallback((msg: MensajePublico) => {
-    setMensajes(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
-  }, []);
+  // Referencia para saber si el efecto sigue vigente tras async
+  const activeRef = useRef(true);
 
+  // ── Conexión al socket y carga de historial ──────────────────────────────
   useEffect(() => {
     if (!salaId || !jwtToken) return;
 
-    const gen = ++genRef.current;
-    let removeListener: (() => void) | undefined;
+    activeRef.current = true;
+    setChatReady(false);
+    setChatError(null);
 
-    removeListener = onMensajeNuevo(msg => {
-      if (msg.salaId === salaId) addMensaje(msg);
-    });
+    let sock: ReturnType<typeof getActiveSocket> = null;
 
     (async () => {
       try {
-        setChatReady(false);
-        setChatError(null);
-
+        // 1. Cargar historial REST
         const history = await getMensajes(jwtToken, salaId, 50);
-        if (gen !== genRef.current) return;
+        if (!activeRef.current) return;
         setMensajes(history);
 
-        await connectSocket(jwtToken);
-        if (gen !== genRef.current) return;
+        // 2. Conectar socket
+        sock = await connectSocket(jwtToken);
+        if (!activeRef.current) return;
 
-        setActiveSala(salaId);
+        // 3. Registrar listener DIRECTAMENTE en el socket
+        const onMensaje = (msg: MensajePublico) => {
+          if (msg.salaId !== salaId) return;
+          setMensajes(prev =>
+            prev.some(m => m.id === msg.id) ? prev : [...prev, msg],
+          );
+        };
+        sock.on('mensaje:nuevo', onMensaje);
+
+        // 4. Re-registrar listener tras reconexión
+        const onReconnect = async () => {
+          if (!activeRef.current) return;
+          await joinSalaSocket(salaId);
+        };
+        sock.io.on('reconnect', onReconnect);
+
+        // 5. Unirse a la sala en el socket
         const joinRes = await joinSalaSocket(salaId);
-        if (gen !== genRef.current) return;
+        if (!activeRef.current) return;
 
         if (!joinRes.ok) {
           setChatError(joinRes.error);
@@ -57,55 +69,73 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
 
         setChatReady(true);
       } catch (err) {
-        if (gen !== genRef.current) return;
-        setChatError(err instanceof Error ? err.message : 'Error al conectar el chat.');
+        if (!activeRef.current) return;
+        setChatError(
+          err instanceof Error ? err.message : 'Error al conectar el chat.',
+        );
       }
     })();
 
     return () => {
-      genRef.current++;
-      removeListener?.();
+      activeRef.current = false;
+
+      const s = getActiveSocket();
+      if (s) {
+        s.off('mensaje:nuevo');
+        s.io.off('reconnect');
+      }
       leaveSalaSocket(salaId);
-      clearActiveSala();
       disconnectSocket();
       setChatReady(false);
     };
-  }, [salaId, jwtToken, addMensaje]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salaId, jwtToken]);
 
-  const sendMensaje = useCallback(async (texto: string) => {
-    if (!salaId || !user) {
-      return { ok: false as const, error: 'Sin sesión activa.' };
-    }
+  // ── Enviar mensaje ────────────────────────────────────────────────────────
+  const sendMensaje = useCallback(
+    async (texto: string) => {
+      if (!salaId || !user) {
+        return { ok: false as const, error: 'Sin sesión activa.' };
+      }
 
-    const username =
-      user.username
-      ?? [user.nombres, user.apellidos].filter(Boolean).join(' ')
-      ?? user.email;
+      const username =
+        user.username ??
+        [user.nombres, user.apellidos].filter(Boolean).join(' ') ??
+        user.email;
 
-    const tempId = `pending-${Date.now()}`;
-    const optimistic: MensajePublico = {
-      id: tempId,
-      salaId,
-      uid: user.id,
-      username,
-      texto,
-      createdAt: new Date().toISOString(),
-    };
-    addMensaje(optimistic);
+      // Mensaje optimista local
+      const tempId = `pending-${Date.now()}`;
+      const optimistic: MensajePublico = {
+        id: tempId,
+        salaId,
+        uid: user.id,
+        username,
+        texto,
+        createdAt: new Date().toISOString(),
+      };
 
-    const res = await sendMensajeSocket(salaId, texto);
-    if (!res.ok) {
-      setMensajes(prev => prev.filter(m => m.id !== tempId));
+      setMensajes(prev => [...prev, optimistic]);
+
+      const res = await sendMensajeSocket(salaId, texto);
+
+      if (!res.ok) {
+        // Revertir si falla
+        setMensajes(prev => prev.filter(m => m.id !== tempId));
+        return res;
+      }
+
+      // Reemplazar el optimista por el mensaje real del servidor
+      // (el evento mensaje:nuevo del socket también llega, el dedup por id lo maneja)
+      setMensajes(prev => {
+        const filtered = prev.filter(m => m.id !== tempId && m.id !== res.mensaje.id);
+        return [...filtered, res.mensaje];
+      });
+
       return res;
-    }
-
-    setMensajes(prev => {
-      const withoutPending = prev.filter(m => m.id !== tempId && m.id !== res.mensaje.id);
-      return [...withoutPending, res.mensaje];
-    });
-
-    return res;
-  }, [salaId, user, addMensaje]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [salaId, user?.id],
+  );
 
   return { mensajes, chatReady, chatError, sendMensaje };
 }

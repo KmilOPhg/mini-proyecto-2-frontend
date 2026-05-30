@@ -6,35 +6,20 @@ const SOCKET_URL =
 
 let socket: Socket | null = null;
 let currentToken: string | null = null;
-let activeSalaId: string | null = null;
-let connectPromise: Promise<Socket> | null = null;
 
-const mensajeListeners = new Set<(msg: MensajePublico) => void>();
-
-function dispatchMensaje(msg: MensajePublico) {
-  mensajeListeners.forEach(cb => cb(msg));
+/** Devuelve el socket actual, o null si no hay conexión activa. */
+export function getActiveSocket(): Socket | null {
+  return socket;
 }
 
-function attachSocketHandlers(sock: Socket) {
-  sock.off('mensaje:nuevo');
-  sock.on('mensaje:nuevo', dispatchMensaje);
-
-  sock.io.off('reconnect');
-  sock.io.on('reconnect', () => {
-    if (activeSalaId && sock.connected) {
-      sock.emit('sala:unirse', { salaId: activeSalaId });
-    }
-  });
-}
-
+/** Conecta el socket con el token dado y espera a que esté listo. */
 export function connectSocket(token: string): Promise<Socket> {
+  // Reutilizar si ya está conectado con el mismo token
   if (socket?.connected && currentToken === token) {
     return Promise.resolve(socket);
   }
-  if (connectPromise && currentToken === token) {
-    return connectPromise;
-  }
 
+  // Desconectar cualquier socket previo
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();
@@ -43,102 +28,83 @@ export function connectSocket(token: string): Promise<Socket> {
 
   currentToken = token;
 
-  connectPromise = new Promise<Socket>((resolve, reject) => {
+  return new Promise<Socket>((resolve, reject) => {
     const sock = io(SOCKET_URL, {
       auth: { token },
-      autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+      reconnectionDelay: 1500,
       transports: ['websocket', 'polling'],
     });
 
     const onConnect = () => {
-      cleanup();
+      sock.off('connect', onConnect);
+      sock.off('connect_error', onError);
       socket = sock;
-      attachSocketHandlers(sock);
       resolve(sock);
     };
 
     const onError = (err: Error) => {
-      cleanup();
-      sock.disconnect();
-      connectPromise = null;
-      reject(err);
-    };
-
-    const cleanup = () => {
       sock.off('connect', onConnect);
       sock.off('connect_error', onError);
+      sock.disconnect();
+      socket = null;
+      reject(err);
     };
 
     sock.on('connect', onConnect);
     sock.on('connect_error', onError);
-  }).finally(() => {
-    connectPromise = null;
   });
-
-  return connectPromise!;
-}
-
-export function setActiveSala(salaId: string) {
-  activeSalaId = salaId;
-}
-
-export function clearActiveSala() {
-  activeSalaId = null;
 }
 
 export function disconnectSocket() {
-  socket?.removeAllListeners();
-  socket?.disconnect();
-  socket = null;
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
   currentToken = null;
-  activeSalaId = null;
-  connectPromise = null;
 }
 
-export function onMensajeNuevo(cb: (msg: MensajePublico) => void) {
-  mensajeListeners.add(cb);
-  return () => { mensajeListeners.delete(cb); };
-}
-
-function emitWithAck<T>(
-  event: string,
-  payload: unknown,
-  timeoutMs = 12000,
-): Promise<T> {
+export function joinSalaSocket(salaId: string): Promise<{ ok: true; salaId: string } | { ok: false; error: string }> {
   return new Promise(resolve => {
     if (!socket?.connected) {
-      resolve({ ok: false, error: 'Sin conexión al chat en tiempo real.' } as T);
+      resolve({ ok: false, error: 'Sin conexión al chat en tiempo real.' });
       return;
     }
-    const timer = setTimeout(() => {
-      resolve({ ok: false, error: 'Tiempo de espera agotado.' } as T);
-    }, timeoutMs);
-    socket.emit(event, payload, (res: T) => {
+    const timer = setTimeout(
+      () => resolve({ ok: false, error: 'Tiempo de espera agotado al unirse a la sala.' }),
+      12000,
+    );
+    socket.emit('sala:unirse', { salaId }, (res: { ok: boolean; salaId?: string; error?: string }) => {
       clearTimeout(timer);
-      resolve(res);
+      if (res.ok) resolve({ ok: true, salaId: res.salaId ?? salaId });
+      else resolve({ ok: false, error: res.error ?? 'No se pudo unir a la sala.' });
     });
   });
 }
 
-export function joinSalaSocket(salaId: string): Promise<{ ok: true; salaId: string } | { ok: false; error: string }> {
-  return emitWithAck('sala:unirse', { salaId });
-}
-
 export function leaveSalaSocket(salaId: string) {
   socket?.emit('sala:salir', { salaId });
-  if (activeSalaId === salaId) activeSalaId = null;
 }
 
 export function sendMensajeSocket(
   salaId: string,
   texto: string,
 ): Promise<{ ok: true; mensaje: MensajePublico } | { ok: false; error: string }> {
-  return emitWithAck('mensaje:enviar', { salaId, texto });
-}
-
-export function isSocketConnected(): boolean {
-  return socket?.connected ?? false;
+  return new Promise(resolve => {
+    if (!socket?.connected) {
+      resolve({ ok: false, error: 'Sin conexión al chat en tiempo real.' });
+      return;
+    }
+    const timer = setTimeout(
+      () => resolve({ ok: false, error: 'Tiempo de espera agotado al enviar el mensaje.' }),
+      12000,
+    );
+    socket.emit('mensaje:enviar', { salaId, texto }, (res: { ok: boolean; mensaje?: MensajePublico; error?: string }) => {
+      clearTimeout(timer);
+      if (res.ok && res.mensaje) resolve({ ok: true, mensaje: res.mensaje });
+      else resolve({ ok: false, error: res.error ?? 'No se pudo enviar el mensaje.' });
+    });
+  });
 }
