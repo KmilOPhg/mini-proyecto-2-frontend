@@ -156,17 +156,19 @@ function ParticipantAvatar({ usuario, size = 72 }: { usuario: UsuarioEnLinea; si
 }
 
 function ParticipantTile({
-  usuario, isYou, isHost,
+  usuario, isYou, isHost, compact = false,
 }: {
   usuario: UsuarioEnLinea;
   isYou: boolean;
   isHost: boolean;
+  compact?: boolean;
 }) {
   const gradient = participantGradientFromUid(usuario.uid);
+  const avatarSize = compact ? 44 : 64;
 
   return (
     <div
-      className="relative w-full min-h-[120px] rounded-[16px] overflow-hidden flex items-end p-3 sm:p-3.5 aspect-video"
+      className={`relative w-full h-full min-h-[72px] rounded-[12px] sm:rounded-[14px] overflow-hidden flex items-end ${compact ? 'p-2' : 'p-3 sm:p-3.5'}`}
       style={{
         background: gradient,
         border: isHost
@@ -186,22 +188,24 @@ function ParticipantTile({
 
       {/* Avatar */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <ParticipantAvatar usuario={usuario} size={64} />
+        <ParticipantAvatar usuario={usuario} size={avatarSize} />
       </div>
 
       {/* Pop-out icon */}
+      {!compact && (
       <ComingSoonButton
         label="Ampliar"
-        className="absolute bottom-2.5 right-2.5 w-7 h-7 rounded-[8px] flex items-center justify-center border-0"
+        className="absolute bottom-2 right-2 w-6 h-6 sm:bottom-2.5 sm:right-2.5 sm:w-7 sm:h-7 rounded-[8px] flex items-center justify-center border-0"
         style={{ background: 'rgba(0,0,0,0.45)', color: '#CBD5E1' }}
       >
         <IconExpand size={13} strokeWidth={2} />
       </ComingSoonButton>
+      )}
 
       {/* Name label */}
       <div className="relative z-10 flex items-center gap-1.5 min-w-0 max-w-full">
         <span
-          className="text-[12px] sm:text-[12.5px] font-medium px-2 py-0.5 rounded-[6px] truncate max-w-full"
+          className={`font-medium px-1.5 sm:px-2 py-0.5 rounded-[6px] truncate max-w-full ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[12px] sm:text-[12.5px]'}`}
           style={{ background: 'rgba(0,0,0,0.5)', color: '#F8FAFC' }}
         >
           {isYou ? 'Tú' : isHost ? 'Host' : usuario.nombre}
@@ -211,6 +215,43 @@ function ParticipantTile({
             </span>
           )}
         </span>
+      </div>
+    </div>
+  );
+}
+
+function ParticipantSidebarRow({
+  usuario, isYou, isHost,
+}: {
+  usuario: UsuarioEnLinea;
+  isYou: boolean;
+  isHost: boolean;
+}) {
+  const label = isYou ? 'Tú' : isHost ? 'Host' : usuario.nombre;
+
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 rounded-[10px]"
+      style={{
+        background: 'rgba(148,163,184,0.06)',
+        border: isHost ? '1px solid rgba(129,140,248,0.35)' : '1px solid rgba(148,163,184,0.1)',
+      }}
+    >
+      <ParticipantAvatar usuario={usuario} size={36} />
+      <div className="min-w-0 flex-1">
+        <p className="m-0 text-[13px] font-medium truncate" style={{ color: '#F8FAFC' }}>
+          {label}
+          {isHost && isYou && (
+            <span className="ml-1.5 text-[10px] font-bold tracking-wide" style={{ color: '#A5B4FC' }}>
+              HOST
+            </span>
+          )}
+        </p>
+        {isHost && !isYou && (
+          <p className="m-0 mt-0.5 text-[11px] font-semibold tracking-wide" style={{ color: '#A5B4FC' }}>
+            HOST
+          </p>
+        )}
       </div>
     </div>
   );
@@ -267,6 +308,7 @@ export default function RoomPage() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
+  const [participantsOpen, setParticipantsOpen] = useState(false);
   const [elapsed, setElapsed] = useState('00:00');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showEditRoomModal, setShowEditRoomModal] = useState(false);
@@ -362,6 +404,11 @@ export default function RoomPage() {
     });
   }, [usuariosEnLinea, sala, myUid]);
 
+  const participantesEnGrid = useMemo(
+    () => participantesOrdenados.slice(0, 6),
+    [participantesOrdenados],
+  );
+
   const hostNombre = useMemo(() => {
     const host = participantesOrdenados.find(u => u.uid === sala?.creadorUid);
     if (host) return host.nombre.split(' ')[0] + '.';
@@ -429,6 +476,29 @@ export default function RoomPage() {
     setSala(updated);
   }
 
+  function toggleChat() {
+    setChatOpen(prev => {
+      const next = !prev;
+      if (next) setParticipantsOpen(false);
+      return next;
+    });
+  }
+
+  function toggleParticipants() {
+    setParticipantsOpen(prev => {
+      const next = !prev;
+      if (next) setChatOpen(false);
+      return next;
+    });
+  }
+
+  function closeRightPanel() {
+    setChatOpen(false);
+    setParticipantsOpen(false);
+  }
+
+  const rightPanelOpen = chatOpen || participantsOpen;
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
       <main id="main" className="flex flex-col flex-1 min-h-0">
@@ -492,11 +562,26 @@ export default function RoomPage() {
             >
               <IconLink size={16} />
             </IconBtn>
-            <IconBtn label="Participantes" badge={onlineCount} comingSoon>
+            <IconBtn
+              label="Participantes"
+              badge={onlineCount}
+              active={participantsOpen}
+              onClick={toggleParticipants}
+            >
               <IconUsers size={16} />
             </IconBtn>
           </span>
-          <IconBtn label="Chat" active={chatOpen} badge={mensajes.length} onClick={() => setChatOpen(v => !v)}>
+          <span className="sm:hidden">
+            <IconBtn
+              label="Participantes"
+              badge={onlineCount}
+              active={participantsOpen}
+              onClick={toggleParticipants}
+            >
+              <IconUsers size={16} />
+            </IconBtn>
+          </span>
+          <IconBtn label="Chat" active={chatOpen} badge={mensajes.length} onClick={toggleChat}>
             <IconMessageSquare size={16} />
           </IconBtn>
           <IconBtn label="Configuración" onClick={handleOpenSettings}>
@@ -510,39 +595,86 @@ export default function RoomPage() {
 
         {/* Video + chat (above bottom bar) */}
         <div className="flex flex-1 min-h-0 relative">
-          <main className="flex-1 min-w-0 min-h-0 overflow-y-auto sm:overflow-y-auto p-3 sm:p-4">
-            <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 content-start">
+          <main className="flex-1 min-w-0 min-h-0 overflow-hidden p-2 sm:p-3">
+            <div className="grid h-full min-h-0 w-full gap-2 sm:gap-2.5 grid-cols-3 grid-rows-2 auto-rows-fr">
               {!chatReady && participantesOrdenados.length === 0 ? (
-                <div className="col-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                <div className="col-span-full row-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
                   <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
                 </div>
               ) : participantesOrdenados.length === 0 ? (
-                <div className="col-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                <div className="col-span-full row-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
                   <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
                 </div>
               ) : (
-                participantesOrdenados.map(u => (
+                participantesEnGrid.map(u => (
                   <ParticipantTile
                     key={u.uid}
                     usuario={u}
                     isYou={u.uid === myUid}
                     isHost={u.uid === sala.creadorUid}
+                    compact
                   />
                 ))
               )}
             </div>
           </main>
 
-          {/* ── Chat sidebar / overlay ── */}
-          {chatOpen && (
+          {/* ── Right panel: chat or participants (mutually exclusive) ── */}
+          {rightPanelOpen && (
             <>
               <button
                 type="button"
                 className="lg:hidden fixed inset-0 z-30 border-0 cursor-pointer"
                 style={{ background: 'rgba(0,0,0,0.55)' }}
-                aria-label="Cerrar chat"
-                onClick={() => setChatOpen(false)}
+                aria-label="Cerrar panel"
+                onClick={closeRightPanel}
               />
+              {participantsOpen ? (
+                <aside
+                  className="fixed inset-y-0 right-0 z-40 w-full max-w-[min(100vw,340px)] flex flex-col min-h-0 lg:static lg:z-auto lg:w-[340px] lg:max-w-none lg:flex-none"
+                  style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
+                >
+                  <div
+                    className="flex items-center justify-between px-4 py-3.5 flex-none"
+                    style={{ borderBottom: '1px solid rgba(148,163,184,0.1)' }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-semibold">Participantes</span>
+                      <span
+                        className="text-[11px] px-2 py-0.5 rounded-full font-bold"
+                        style={{ background: 'rgba(99,102,241,0.22)', color: '#A5B4FC' }}
+                      >
+                        {participantesOrdenados.length}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeRightPanel}
+                      className="w-7 h-7 rounded-[8px] flex items-center justify-center cursor-pointer border-0"
+                      style={{ background: 'rgba(148,163,184,0.08)', color: '#64748B' }}
+                      aria-label="Cerrar panel de participantes"
+                    >
+                      <IconX size={14} />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+                    {participantesOrdenados.length === 0 ? (
+                      <p className="m-0 text-center text-[13px] py-6" style={{ color: '#64748B' }}>
+                        Nadie conectado aún.
+                      </p>
+                    ) : (
+                      participantesOrdenados.map(u => (
+                        <ParticipantSidebarRow
+                          key={u.uid}
+                          usuario={u}
+                          isYou={u.uid === myUid}
+                          isHost={u.uid === sala.creadorUid}
+                        />
+                      ))
+                    )}
+                  </div>
+                </aside>
+              ) : (
             <aside
               className="fixed inset-y-0 right-0 z-40 w-full max-w-[min(100vw,340px)] flex flex-col min-h-0 lg:static lg:z-auto lg:w-[340px] lg:max-w-none lg:flex-none"
               style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
@@ -562,7 +694,7 @@ export default function RoomPage() {
                 </span>
               </div>
               <button
-                onClick={() => setChatOpen(false)}
+                onClick={closeRightPanel}
                 className="w-7 h-7 rounded-[8px] flex items-center justify-center cursor-pointer border-0"
                 style={{ background: 'rgba(148,163,184,0.08)', color: '#64748B' }}
                 aria-label="Cerrar chat"
@@ -639,8 +771,9 @@ export default function RoomPage() {
               </button>
             </form>
           </aside>
+              )}
             </>
-        )}
+          )}
         </div>
 
         {/* Bottom bar — full width under video and chat */}
@@ -720,10 +853,14 @@ export default function RoomPage() {
           </div>
 
           <div className="hidden lg:flex items-center gap-2 justify-self-end">
-            <PanelToggle label="Panel de participantes" comingSoon>
+            <PanelToggle
+              label="Panel de participantes"
+              active={participantsOpen}
+              onClick={toggleParticipants}
+            >
               <IconUsers size={17} />
             </PanelToggle>
-            <PanelToggle label="Chat" active={chatOpen} onClick={() => setChatOpen(v => !v)}>
+            <PanelToggle label="Chat" active={chatOpen} onClick={toggleChat}>
               <IconMessageSquare size={17} />
             </PanelToggle>
           </div>
