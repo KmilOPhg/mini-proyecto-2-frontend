@@ -10,7 +10,6 @@ import Footer from '../components/Footer';
 import ProfileEditModal from '../components/ProfileEditModal';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
-import ComingSoonButton from '../components/ComingSoonButton';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function LogoIcon() {
@@ -123,8 +122,17 @@ function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout, roomC
 
 
 
+const ENTER_ROOM_BTN_CLASS =
+  'h-8 px-3 rounded-[9px] font-medium text-white cursor-pointer border-0 transition-opacity hover:opacity-90';
+
+const ENTER_ROOM_BTN_STYLE = {
+  background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)',
+  border: '1px solid rgba(255,255,255,0.06)',
+  boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)',
+} as const;
+
 // ─── Room Card ────────────────────────────────────────────────────────────────
-function RoomCard({ r, view, onEnter: _onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (id: string) => void }) {
+function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (id: string) => void }) {
   const grad = COLOR_GRADIENTS[r.color];
 
   if (view === 'list') {
@@ -154,13 +162,15 @@ function RoomCard({ r, view, onEnter: _onEnter }: { r: RoomCardData; view: 'grid
         <div className="flex gap-1.5">
           <Tag label={r.code} />
         </div>
-        <ComingSoonButton
-          label="Entrar"
-          className="h-8 px-3 rounded-[9px] text-sm font-medium text-white"
-          style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
+        <button
+          type="button"
+          onClick={() => onEnter(r.id)}
+          aria-label={`Entrar a ${r.title}`}
+          className={`${ENTER_ROOM_BTN_CLASS} text-sm`}
+          style={ENTER_ROOM_BTN_STYLE}
         >
           Entrar
-        </ComingSoonButton>
+        </button>
       </article>
     );
   }
@@ -220,13 +230,15 @@ function RoomCard({ r, view, onEnter: _onEnter }: { r: RoomCardData; view: 'grid
           </svg>
           <span>{r.onlineCount} en la sala</span>
         </div>
-        <ComingSoonButton
-          label="Entrar"
-          className="h-8 px-3 rounded-[9px] text-[13px] font-medium text-white"
-          style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
+        <button
+          type="button"
+          onClick={() => onEnter(r.id)}
+          aria-label={`Entrar a ${r.title}`}
+          className={`${ENTER_ROOM_BTN_CLASS} text-[13px]`}
+          style={ENTER_ROOM_BTN_STYLE}
         >
           Entrar
-        </ComingSoonButton>
+        </button>
       </footer>
     </article>
   );
