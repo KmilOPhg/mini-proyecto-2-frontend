@@ -105,16 +105,20 @@ export type SalaPublica = {
   nombre: string;
   creadorUid: string;
   participantes: string[];
+  codigoInvitacion: string | null;
   esCreador: boolean;
   createdAt: string | null;
   updatedAt: string | null;
 };
 
-export function createSala(token: string, nombre: string) {
+export function createSala(token: string, nombre: string, codigoInvitacion?: string) {
   return request<SalaPublica>('/salas', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ nombre }),
+    body: JSON.stringify({
+      nombre,
+      ...(codigoInvitacion ? { codigoInvitacion } : {}),
+    }),
   });
 }
 
@@ -140,6 +144,14 @@ export function joinSala(token: string, id: string) {
   return request<SalaPublica>(`/salas/${encodeURIComponent(id)}/unirse`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function joinSalaPorCodigo(token: string, codigo: string) {
+  return request<SalaPublica>('/salas/unirse-por-codigo', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ codigo: codigo.trim().toUpperCase() }),
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { joinSala } from '../services/api';
+import { joinSala, joinSalaPorCodigo } from '../services/api';
+import { isCodigoInvitacion, parseSalaJoinInput } from '../utils/sala';
 import { useAuthStore } from '../store/authStore';
 
 interface Props {
@@ -42,14 +43,16 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
   if (!open) return null;
 
   async function handleJoin() {
-    const id = salaId.trim();
-    if (!id) { setError('Ingresa el ID de la sala.'); return; }
+    const parsed = parseSalaJoinInput(salaId);
+    if (!parsed) { setError('Ingresa el ID de la sala.'); return; }
     if (!jwtToken) return;
 
     setJoining(true);
     setError(null);
     try {
-      const sala = await joinSala(jwtToken, id);
+      const sala = isCodigoInvitacion(parsed)
+        ? await joinSalaPorCodigo(jwtToken, parsed)
+        : await joinSala(jwtToken, parsed);
       toast.success(`Te uniste a "${sala.nombre}".`);
       onJoined(sala.id);
       onClose();
@@ -106,7 +109,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
               type="text"
               value={salaId}
               onChange={e => { setSalaId(e.target.value); setError(null); }}
-              placeholder="Ej. abc123xyz o CRF-XXX-XXX"
+              placeholder="Ej. CRF-7K3-92Q"
               autoFocus
               className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none font-mono"
               style={{
@@ -119,7 +122,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
               <p className="m-0 text-[12.5px]" style={{ color: '#F87171' }}>{error}</p>
             )}
             <p className="m-0 text-[12px]" style={{ color: '#475569' }}>
-              Usa el ID que te compartió el creador de la sala.
+              Usa el código CRF que aparece en la sala (botón Copiar).
             </p>
           </div>
         </div>

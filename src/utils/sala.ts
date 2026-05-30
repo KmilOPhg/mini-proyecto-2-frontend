@@ -20,6 +20,23 @@ export function formatSalaCode(id: string): string {
   return `CRF-${a}-${b}`;
 }
 
+const CODIGO_INVITACION_RE = /^CRF-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
+
+export function isCodigoInvitacion(value: string): boolean {
+  return CODIGO_INVITACION_RE.test(value.trim().toUpperCase());
+}
+
+export function parseSalaJoinInput(raw: string): string {
+  const trimmed = raw.trim();
+  const urlMatch = trimmed.match(/\/salas\/([^/?#]+)/i);
+  if (urlMatch) return decodeURIComponent(urlMatch[1]!);
+  return trimmed;
+}
+
+export function salaShareCode(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
+  return sala.codigoInvitacion ?? sala.id;
+}
+
 function colorFromId(id: string): RoomColor {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash + id.charCodeAt(i) * (i + 1)) % COLORS.length;
@@ -65,7 +82,7 @@ export function salaToRoomCard(sala: SalaPublica, hostName: string): RoomCardDat
     color: colorFromId(sala.id),
     time,
     desc: `Sala colaborativa · ${sala.participantes.length} participante${sala.participantes.length === 1 ? '' : 's'}.`,
-    code: formatSalaCode(sala.id),
+    code: sala.codigoInvitacion ?? formatSalaCode(sala.id),
   };
 }
 

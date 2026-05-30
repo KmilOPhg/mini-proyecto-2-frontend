@@ -265,7 +265,7 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
     if (!jwtToken) return;
     setCreating(true);
     try {
-      const sala = await createSala(jwtToken, nombre.trim());
+      const sala = await createSala(jwtToken, nombre.trim(), roomCode);
       toast.success('¡Sala creada correctamente!');
       onCreated?.(sala);
       onClose();

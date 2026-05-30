@@ -9,7 +9,7 @@ import {
 } from '../lib/socket';
 import { useAuthStore } from '../store/authStore';
 import {
-  formatSalaCode, formatMessageTime, validateMensajeTexto,
+  salaShareCode, formatMessageTime, validateMensajeTexto,
 } from '../utils/sala';
 
 // ── Static mock participants (UI only) ───────────────────────────────────────
@@ -198,12 +198,13 @@ export default function RoomPage() {
   }
 
   async function handleCopyId() {
-    if (!id) return;
+    if (!sala) return;
+    const code = salaShareCode(sala);
     try {
-      await navigator.clipboard.writeText(formatSalaCode(id));
-      toast.success('ID copiado al portapapeles.');
+      await navigator.clipboard.writeText(code);
+      toast.success('Código copiado al portapapeles.');
     } catch {
-      toast.error('No se pudo copiar el ID.');
+      toast.error('No se pudo copiar el código.');
     }
   }
 
@@ -233,7 +234,7 @@ export default function RoomPage() {
     );
   }
 
-  const roomCode = formatSalaCode(sala.id);
+  const roomCode = salaShareCode(sala);
   const hostLabel = sala.esCreador ? `${displayName.split(' ')[0] ?? 'Tú'} (tú)` : 'Anfitrión';
 
   return (
