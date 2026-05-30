@@ -89,7 +89,6 @@ function ParticipantTile({
 }) {
   const initials = getInitials(usuario.nombre);
   const gradient = participantGradientFromUid(usuario.uid);
-  const displayName = isYou ? 'Tú' : usuario.nombre;
 
   return (
     <div
@@ -139,7 +138,7 @@ function ParticipantTile({
           className="text-[12.5px] font-medium px-2 py-0.5 rounded-[6px]"
           style={{ background: 'rgba(0,0,0,0.5)', color: '#F8FAFC' }}
         >
-          {displayName}
+          {usuario.nombre}
           {isHost && (
             <span className="ml-1.5 text-[10px] font-bold tracking-wide" style={{ color: '#A5B4FC' }}>
               HOST
@@ -166,7 +165,7 @@ function ChatMessage({ msg, isOwn }: { msg: MensajePublico; isOwn: boolean }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-[12.5px] font-semibold" style={{ color: isOwn ? '#A5B4FC' : '#E2E8F0' }}>
-            {isOwn ? 'Tú' : msg.username}
+            {msg.username}
           </span>
           <span className="text-[11px]" style={{ color: '#475569' }}>
             {formatMessageTime(msg.createdAt)}

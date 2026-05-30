@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { refreshPresenceSocket } from '../lib/socket';
 import { updatePassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { updateMyProfile, deleteMyAccount } from '../services/api';
@@ -287,8 +288,9 @@ export default function ProfileEditModal({ open, onClose }: Props) {
 
     setSaving(true);
     try {
-      const updated = await updateMyProfile(jwtToken, payload);
-      updateUser(updated);
+      const { user: updated, token } = await updateMyProfile(jwtToken, payload);
+      updateUser(updated, token);
+      await refreshPresenceSocket().catch(() => {});
       toast.success('Perfil actualizado correctamente.');
       onClose();
     } catch (err) {
