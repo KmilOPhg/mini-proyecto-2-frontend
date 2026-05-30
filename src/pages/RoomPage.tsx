@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getSala, joinSala, getMensajes } from '../services/api';
-import type { MensajePublico, SalaPublica } from '../services/api';
-import {
-  connectSocket, disconnectSocket, joinSalaSocket, leaveSalaSocket,
-  sendMensajeSocket, onMensajeNuevo, appendMensajeLocal,
-} from '../lib/socket';
+import { getSala, joinSala } from '../services/api';
+import type { SalaPublica } from '../services/api';
+import { useRoomChat } from '../hooks/useRoomChat';
 import { useAuthStore } from '../store/authStore';
 import {
   salaShareCode, formatMessageTime, validateMensajeTexto,
 } from '../utils/sala';
+import type { MensajePublico } from '../services/api';
 
 // ── Static mock participants (UI only) ───────────────────────────────────────
 const MOCK_PARTICIPANTS = [
@@ -76,14 +74,14 @@ export default function RoomPage() {
   const [sala, setSala] = useState<SalaPublica | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mensajes, setMensajes] = useState<MensajePublico[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
   const [elapsed, setElapsed] = useState('00:00');
 
+  const { mensajes, chatReady, chatError, sendMensaje } = useRoomChat(id, jwtToken ?? null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const joinedRef = useRef(false);
   const startTimeRef = useRef(Date.now());
 
   const myUid = user?.id ?? '';
@@ -131,17 +129,6 @@ export default function RoomPage() {
 
         if (cancelled) return;
         setSala(salaData);
-
-        const history = await getMensajes(jwtToken!, id!, 50);
-        if (cancelled) return;
-        setMensajes(history);
-
-        await connectSocket(jwtToken!);
-        if (cancelled) return;
-
-        const joinRes = await joinSalaSocket(id!);
-        if (!joinRes.ok) throw new Error(joinRes.error);
-        joinedRef.current = true;
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'No se pudo cargar la sala.');
@@ -152,25 +139,12 @@ export default function RoomPage() {
     }
 
     init();
-    return () => {
-      cancelled = true;
-      if (joinedRef.current && id) leaveSalaSocket(id);
-      joinedRef.current = false;
-      disconnectSocket();
-    };
+    return () => { cancelled = true; };
   }, [id, jwtToken]);
-
-  useEffect(() => {
-    if (!id) return;
-    return onMensajeNuevo(msg => {
-      if (msg.salaId !== id) return;
-      setMensajes(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
-    });
-  }, [id]);
 
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!id || sending) return;
+    if (!id || sending || !chatReady) return;
 
     const validation = validateMensajeTexto(draft);
     if (validation) {
@@ -182,12 +156,10 @@ export default function RoomPage() {
     const texto = draft.trim();
     setDraft('');
     try {
-      const res = await sendMensajeSocket(id, texto);
+      const res = await sendMensaje(texto);
       if (!res.ok) {
         setDraft(texto);
         toast.error(res.error);
-      } else {
-        appendMensajeLocal(res.mensaje);
       }
     } finally {
       setSending(false);
@@ -195,8 +167,6 @@ export default function RoomPage() {
   }
 
   function handleLeave() {
-    if (id && joinedRef.current) leaveSalaSocket(id);
-    disconnectSocket();
     navigate('/dashboard');
   }
 
@@ -371,7 +341,17 @@ export default function RoomPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
-              {mensajes.length === 0 ? (
+              {chatError && (
+                <p className="m-0 text-center text-[12px] px-2 py-2 rounded-lg" style={{ color: '#F87171', background: 'rgba(127,29,29,0.25)' }}>
+                  {chatError}
+                </p>
+              )}
+              {!chatReady && !chatError && (
+                <p className="m-0 text-center text-[13px] py-4" style={{ color: '#64748B' }}>
+                  Conectando chat en tiempo real…
+                </p>
+              )}
+              {mensajes.length === 0 && chatReady ? (
                 <p className="m-0 text-center text-[13px] py-8" style={{ color: '#475569' }}>
                   Aún no hay mensajes. ¡Sé el primero en escribir!
                 </p>
@@ -394,7 +374,7 @@ export default function RoomPage() {
                 onChange={e => setDraft(e.target.value)}
                 placeholder="Escribe un mensaje…"
                 maxLength={2000}
-                disabled={sending}
+                disabled={sending || !chatReady}
                 className="flex-1 px-3 py-2.5 rounded-[10px] text-[13px] outline-none"
                 style={{
                   background: '#0F172A',
@@ -404,7 +384,7 @@ export default function RoomPage() {
               />
               <button
                 type="submit"
-                disabled={sending || !draft.trim()}
+                disabled={sending || !draft.trim() || !chatReady}
                 aria-label="Enviar mensaje"
                 className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer border-0 flex-none"
                 style={{
