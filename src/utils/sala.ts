@@ -43,6 +43,10 @@ function colorFromId(id: string): RoomColor {
   return COLORS[hash]!;
 }
 
+export function participantGradientFromUid(uid: string): string {
+  return COLOR_GRADIENTS[colorFromId(uid)];
+}
+
 export function inferSubject(nombre: string): string {
   const beforeDash = nombre.split(/[·\-–—|]/)[0]?.trim();
   if (beforeDash && beforeDash.length <= 24) return beforeDash;
