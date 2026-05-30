@@ -1,8 +1,15 @@
 import { io, type Socket } from 'socket.io-client';
 import type { MensajePublico } from '../services/api';
 
-const SOCKET_URL =
-  (import.meta.env.VITE_API_URL ?? 'http://localhost:1206/api').replace(/\/api\/?$/, '');
+function resolveSocketUrl(): string {
+  const explicit = import.meta.env.VITE_SOCKET_URL;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+  const api = import.meta.env.VITE_API_URL ?? '/api';
+  if (api.startsWith('http')) return api.replace(/\/api\/?$/, '');
+  return 'http://localhost:1206';
+}
+
+const SOCKET_URL = resolveSocketUrl();
 
 let socket: Socket | null = null;
 let currentToken: string | null = null;

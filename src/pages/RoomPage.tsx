@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getSala, joinSala } from '../services/api';
+import { getSala, joinSala, deleteSala } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
 import { useAuthStore } from '../store/authStore';
@@ -11,11 +11,19 @@ import {
 } from '../utils/sala';
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
 import ComingSoonButton from '../components/ComingSoonButton';
+import LeaveRoomModal from '../components/LeaveRoomModal';
+import {
+  IconArrowLeft, IconClock, IconExpand, IconLayoutGrid, IconLink,
+  IconMessageSquare, IconMic, IconMonitorUp, IconMoreHorizontal,
+  IconPhoneHangup, IconPlus, IconSend, IconSettings, IconUsers, IconVideo, IconX,
+} from '../components/room/RoomIcons';
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
 const iconBtnClass = 'relative w-9 h-9 rounded-[10px] flex items-center justify-center border-0 transition-colors';
-const floatingBtnClass = 'w-10 h-10 rounded-full flex items-center justify-center border-0';
+const panelToggleClass = 'w-10 h-10 rounded-[12px] flex items-center justify-center border-0 transition-colors';
+const controlBtnClass = 'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1.5 px-1 border-0 bg-transparent';
+const exitBtnClass = 'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1.5 px-2 rounded-[14px] border-0 cursor-pointer';
 
 function IconBtn({ children, active, badge, onClick, label, comingSoon }: {
   children: React.ReactNode; active?: boolean; badge?: number;
@@ -54,6 +62,46 @@ function IconBtn({ children, active, badge, onClick, label, comingSoon }: {
     >
       {children}
       {badgeEl}
+    </button>
+  );
+}
+
+function ControlBtn({ label, children, comingSoon = true }: {
+  label: string; children: React.ReactNode; comingSoon?: boolean;
+}) {
+  if (comingSoon) {
+    return (
+      <ComingSoonButton
+        label={label}
+        className={controlBtnClass}
+        style={{ cursor: 'not-allowed', opacity: 0.85, color: '#CBD5E1' }}
+      >
+        {children}
+        <span className="text-[11px] font-medium leading-none" style={{ color: '#94A3B8' }}>{label}</span>
+      </ComingSoonButton>
+    );
+  }
+  return null;
+}
+
+function PanelToggle({ label, active, onClick, children, comingSoon }: {
+  label: string; active?: boolean; onClick?: () => void; children: React.ReactNode; comingSoon?: boolean;
+}) {
+  const style = {
+    background: active ? 'rgba(99,102,241,0.14)' : 'rgba(148,163,184,0.06)',
+    border: `1px solid ${active ? 'rgba(99,102,241,0.28)' : 'rgba(148,163,184,0.12)'}`,
+    color: active ? '#818CF8' : '#94A3B8',
+  };
+  if (comingSoon) {
+    return (
+      <ComingSoonButton label={label} className={panelToggleClass} style={style}>
+        {children}
+      </ComingSoonButton>
+    );
+  }
+  return (
+    <button type="button" aria-label={label} onClick={onClick} className={`${panelToggleClass} cursor-pointer`} style={style}>
+      {children}
     </button>
   );
 }
@@ -127,9 +175,7 @@ function ParticipantTile({
         className="absolute bottom-2.5 right-2.5 w-7 h-7 rounded-[8px] flex items-center justify-center border-0"
         style={{ background: 'rgba(0,0,0,0.45)', color: '#CBD5E1' }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-        </svg>
+        <IconExpand size={13} strokeWidth={2} />
       </ComingSoonButton>
 
       {/* Name label */}
@@ -201,8 +247,21 @@ export default function RoomPage() {
   const [sending, setSending] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
   const [elapsed, setElapsed] = useState('00:00');
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
 
-  const { mensajes, usuariosEnLinea, chatReady, chatError, sendMensaje } = useRoomChat(id, jwtToken ?? null);
+  const skipSalaTerminadaRef = useRef(false);
+
+  const handleSalaTerminada = useCallback((mensaje: string) => {
+    if (skipSalaTerminadaRef.current) return;
+    toast.info(mensaje);
+    navigate('/dashboard');
+  }, [navigate]);
+
+  const { mensajes, usuariosEnLinea, chatReady, chatError, sendMensaje } = useRoomChat(
+    id,
+    jwtToken ?? null,
+    { onSalaTerminada: handleSalaTerminada },
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -307,6 +366,22 @@ export default function RoomPage() {
 
   const roomCode = salaShareCode(sala);
   const onlineCount = usuariosEnLinea.length || sala.participantes.length;
+  const isHost = sala.creadorUid === myUid;
+
+  function handleLeaveRoom() {
+    setShowLeaveModal(false);
+    toast.success('Saliste de la sala.');
+    navigate('/dashboard');
+  }
+
+  async function handleEndSession() {
+    if (!jwtToken || !id) return;
+    skipSalaTerminadaRef.current = true;
+    await deleteSala(jwtToken, id);
+    setShowLeaveModal(false);
+    toast.success('Sesión terminada para todos los participantes.');
+    navigate('/dashboard');
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
@@ -322,9 +397,7 @@ export default function RoomPage() {
           className="w-9 h-9 rounded-[10px] flex items-center justify-center cursor-pointer border-0 flex-none"
           style={{ background: 'rgba(148,163,184,0.08)', color: '#94A3B8' }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          <IconArrowLeft size={18} strokeWidth={2} />
         </button>
 
         <div className="flex-1 min-w-0">
@@ -343,154 +416,73 @@ export default function RoomPage() {
           <div className="flex items-center gap-3 mt-0.5 text-[11.5px]" style={{ color: '#64748B' }}>
             <span>ID: <span style={{ color: '#94A3B8' }}>{roomCode}</span></span>
             <span>Anfitrión: <span style={{ color: '#94A3B8' }}>{hostNombre}</span></span>
-            <span className="font-mono tabular-nums" style={{ color: '#818CF8' }}>{elapsed}</span>
+            <span className="inline-flex items-center gap-1 font-mono tabular-nums" style={{ color: '#818CF8' }}>
+              <IconClock size={12} strokeWidth={2} />
+              {elapsed}
+            </span>
           </div>
         </div>
 
         {/* Header utility icons */}
         <div className="flex items-center gap-1 flex-none">
           <IconBtn label="Cambiar diseño" comingSoon>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-            </svg>
+            <IconLayoutGrid size={16} />
           </IconBtn>
-          <IconBtn label="Pantalla completa" comingSoon>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
-            </svg>
+          <IconBtn label="Copiar enlace" comingSoon>
+            <IconLink size={16} />
           </IconBtn>
           <IconBtn label="Participantes" badge={onlineCount} comingSoon>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <IconUsers size={16} />
           </IconBtn>
           <IconBtn label="Chat" active={chatOpen} badge={mensajes.length} onClick={() => setChatOpen(v => !v)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
+            <IconMessageSquare size={16} />
           </IconBtn>
           <IconBtn label="Configuración" comingSoon>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
+            <IconSettings size={16} />
           </IconBtn>
         </div>
       </header>
 
       {/* ── Body ── */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0">
 
-        {/* Participant grid + floating controls */}
-        <main className="flex-1 min-w-0 relative flex flex-col p-4 pb-24">
-          <div
-            className="flex-1 grid gap-3 content-start"
-            style={{
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gridAutoRows: 'minmax(140px, 1fr)',
-            }}
-          >
-            {!chatReady && participantesOrdenados.length === 0 ? (
-              <div className="col-span-3 flex items-center justify-center rounded-[16px] py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
-                <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
-              </div>
-            ) : participantesOrdenados.length === 0 ? (
-              <div className="col-span-3 flex items-center justify-center rounded-[16px] py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
-                <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
-              </div>
-            ) : (
-              participantesOrdenados.map(u => (
-                <ParticipantTile
-                  key={u.uid}
-                  usuario={u}
-                  isYou={u.uid === myUid}
-                  isHost={u.uid === sala.creadorUid}
-                />
-              ))
-            )}
-          </div>
-
-          {/* Bottom-left info */}
-          <div className="absolute bottom-5 left-5 flex items-center gap-3 text-[12px]" style={{ color: '#64748B' }}>
-            <span className="flex items-center gap-1.5">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-              </svg>
-              {onlineCount}
-            </span>
-            <span>ID · {roomCode}</span>
-            <button
-              type="button"
-              onClick={async () => {
-                try { await navigator.clipboard.writeText(roomCode); toast.success('ID copiado.'); }
-                catch { toast.error('No se pudo copiar.'); }
+        {/* Video + chat (above bottom bar) */}
+        <div className="flex flex-1 min-h-0">
+          <main className="flex-1 min-w-0 min-h-0 overflow-hidden p-4">
+            <div
+              className="h-full grid gap-3 content-start"
+              style={{
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridAutoRows: 'minmax(140px, 1fr)',
               }}
-              className="cursor-pointer border-0 bg-transparent text-[12px] font-medium p-0"
-              style={{ color: '#818CF8' }}
             >
-              Copiar
-            </button>
-          </div>
+              {!chatReady && participantesOrdenados.length === 0 ? (
+                <div className="col-span-3 flex items-center justify-center rounded-[16px] py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                  <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
+                </div>
+              ) : participantesOrdenados.length === 0 ? (
+                <div className="col-span-3 flex items-center justify-center rounded-[16px] py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                  <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
+                </div>
+              ) : (
+                participantesOrdenados.map(u => (
+                  <ParticipantTile
+                    key={u.uid}
+                    usuario={u}
+                    isYou={u.uid === myUid}
+                    isHost={u.uid === sala.creadorUid}
+                  />
+                ))
+              )}
+            </div>
+          </main>
 
-          {/* Floating control bar */}
-          <div
-            className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-2 rounded-full"
-            style={{
-              background: 'rgba(15,23,42,0.92)',
-              border: '1px solid rgba(148,163,184,0.14)',
-              backdropFilter: 'blur(12px)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            }}
-          >
-            {[
-              { label: 'Micrófono', icon: <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /> },
-              { label: 'Cámara', icon: <><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" /></> },
-              { label: 'Pantalla', icon: <><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></> },
-            ].map(({ label, icon }) => (
-              <ComingSoonButton
-                key={label}
-                label={label}
-                className={floatingBtnClass}
-                style={{ background: 'rgba(148,163,184,0.1)', color: '#94A3B8' }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  {icon}
-                </svg>
-              </ComingSoonButton>
-            ))}
-            <ComingSoonButton
-              label="Más opciones"
-              className={floatingBtnClass}
-              style={{ background: 'rgba(148,163,184,0.1)', color: '#94A3B8' }}
+          {/* ── Chat sidebar ── */}
+          {chatOpen && (
+            <aside
+              className="w-[340px] flex flex-col flex-none min-h-0"
+              style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
-              </svg>
-            </ComingSoonButton>
-            <div className="w-px h-6 mx-1" style={{ background: 'rgba(148,163,184,0.15)' }} aria-hidden="true" />
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="h-10 px-5 rounded-full text-[13px] font-semibold cursor-pointer border-0 flex items-center gap-2"
-              style={{ background: '#DC2626', color: '#fff' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
-                <path d="M22 2L11 13" />
-              </svg>
-              Salir
-            </button>
-          </div>
-        </main>
-
-        {/* ── Chat sidebar ── */}
-        {chatOpen && (
-          <aside
-            className="w-[340px] flex flex-col flex-none"
-            style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
-          >
             {/* Chat header */}
             <div
               className="flex items-center justify-between px-4 py-3.5 flex-none"
@@ -511,9 +503,7 @@ export default function RoomPage() {
                 style={{ background: 'rgba(148,163,184,0.08)', color: '#64748B' }}
                 aria-label="Cerrar chat"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
+                <IconX size={14} />
               </button>
             </div>
 
@@ -551,16 +541,14 @@ export default function RoomPage() {
                 className="w-8 h-8 rounded-full flex items-center justify-center border-0 flex-none"
                 style={{ background: 'rgba(148,163,184,0.1)', color: '#64748B' }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
+                <IconPlus size={16} />
               </ComingSoonButton>
               <input
                 ref={inputRef}
                 type="text"
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                placeholder="Escribe un mensaje…"
+                placeholder="Escribe un mensaje..."
                 maxLength={2000}
                 disabled={!chatReady}
                 autoFocus
@@ -582,14 +570,109 @@ export default function RoomPage() {
                   opacity: sending || !draft.trim() ? 0.6 : 1,
                 }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                </svg>
+                <IconSend size={15} />
               </button>
             </form>
           </aside>
         )}
+        </div>
+
+        {/* Bottom bar — full width under video and chat */}
+        <footer
+          className="grid flex-none items-center px-5 py-3"
+          style={{
+            gridTemplateColumns: '1fr auto 1fr',
+            background: '#080E1A',
+            borderTop: '1px solid rgba(148,163,184,0.08)',
+          }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full flex-none"
+              style={{
+                background: 'rgba(148,163,184,0.06)',
+                border: '1px solid rgba(148,163,184,0.12)',
+                color: '#94A3B8',
+              }}
+            >
+              <IconUsers size={14} />
+              <span className="text-[12px] font-medium tabular-nums">{onlineCount}</span>
+            </div>
+            <div className="w-px h-4 flex-none" style={{ background: 'rgba(148,163,184,0.18)' }} aria-hidden="true" />
+            <span className="text-[12px] truncate" style={{ color: '#64748B' }}>
+              ID · {roomCode}
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(roomCode); toast.success('ID copiado.'); }
+                catch { toast.error('No se pudo copiar.'); }
+              }}
+              className="cursor-pointer border-0 bg-transparent text-[12px] font-medium p-0 flex-none"
+              style={{ color: '#818CF8' }}
+            >
+              Copiar
+            </button>
+          </div>
+
+          <div
+            className="flex items-center gap-0.5 px-2 py-1.5 rounded-[20px] justify-self-center"
+            style={{
+              background: 'rgba(15,23,42,0.95)',
+              border: '1px solid rgba(148,163,184,0.14)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+            }}
+          >
+            <ControlBtn label="Mic">
+              <IconMic size={20} strokeWidth={1.75} />
+            </ControlBtn>
+            <ControlBtn label="Cámara">
+              <IconVideo size={20} strokeWidth={1.75} />
+            </ControlBtn>
+            <ControlBtn label="Pantalla">
+              <IconMonitorUp size={20} strokeWidth={1.75} />
+            </ControlBtn>
+            <ControlBtn label="Más">
+              <IconMoreHorizontal size={20} />
+            </ControlBtn>
+            <div className="w-px h-9 mx-1.5" style={{ background: 'rgba(148,163,184,0.18)' }} aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => setShowLeaveModal(true)}
+              aria-label="Salir de la sala"
+              className={exitBtnClass}
+              style={{
+                background: '#EF4444',
+                color: '#fff',
+                boxShadow: '0 0 22px rgba(239,68,68,0.38)',
+              }}
+            >
+              <span style={{ transform: 'rotate(135deg)', display: 'inline-flex' }}>
+                <IconPhoneHangup size={18} strokeWidth={2} />
+              </span>
+              <span className="text-[11px] font-semibold leading-none">Salir</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 justify-self-end">
+            <PanelToggle label="Panel de participantes" comingSoon>
+              <IconUsers size={17} />
+            </PanelToggle>
+            <PanelToggle label="Chat" active={chatOpen} onClick={() => setChatOpen(v => !v)}>
+              <IconMessageSquare size={17} />
+            </PanelToggle>
+          </div>
+        </footer>
       </div>
+
+      <LeaveRoomModal
+        open={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        salaNombre={sala.nombre}
+        isHost={isHost}
+        onLeaveRoom={handleLeaveRoom}
+        onEndSession={handleEndSession}
+      />
     </div>
   );
 }

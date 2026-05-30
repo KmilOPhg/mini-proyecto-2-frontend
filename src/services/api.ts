@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:1206/api';
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 type ApiResponse<T> = {
   status: string;
@@ -107,6 +107,7 @@ export type SalaPublica = {
   participantes: string[];
   codigoInvitacion: string | null;
   esCreador: boolean;
+  usuariosEnLinea: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -169,4 +170,11 @@ export function getMensajes(token: string, salaId: string, limit = 50) {
     `/salas/${encodeURIComponent(salaId)}/mensajes?limit=${limit}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
+}
+
+export function deleteSala(token: string, id: string) {
+  return request<null>(`/salas/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }

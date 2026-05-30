@@ -15,8 +15,18 @@ import { getUserDisplayName } from '../utils/userDisplay';
 
 export type UsuarioEnLinea = { uid: string; nombre: string };
 
-export function useRoomChat(salaId: string | undefined, jwtToken: string | null) {
+type UseRoomChatOptions = {
+  onSalaTerminada?: (mensaje: string) => void;
+};
+
+export function useRoomChat(
+  salaId: string | undefined,
+  jwtToken: string | null,
+  options?: UseRoomChatOptions,
+) {
   const user = useAuthStore(s => s.user);
+  const onSalaTerminadaRef = useRef(options?.onSalaTerminada);
+  onSalaTerminadaRef.current = options?.onSalaTerminada;
 
   const [mensajes, setMensajes] = useState<MensajePublico[]>([]);
   const [usuariosEnLinea, setUsuariosEnLinea] = useState<UsuarioEnLinea[]>([]);
@@ -40,6 +50,7 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
     let onMensaje: ((msg: MensajePublico) => void) | null = null;
     let onPresencia: ((data: { salaId: string; usuarios: UsuarioEnLinea[] }) => void) | null = null;
     let onReconnect: (() => void) | null = null;
+    let onSalaTerminada: ((data: { salaId: string; mensaje?: string }) => void) | null = null;
 
     (async () => {
       try {
@@ -62,8 +73,14 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
           if (session === sessionRef.current) joinSalaSocket(salaId);
         };
 
+        onSalaTerminada = (data: { salaId: string; mensaje?: string }) => {
+          if (data.salaId !== salaId || session !== sessionRef.current) return;
+          onSalaTerminadaRef.current?.(data.mensaje ?? 'La sesión fue terminada.');
+        };
+
         sock.on('mensaje:nuevo', onMensaje);
         sock.on('presencia:actualizada', onPresencia);
+        sock.on('sala:terminada', onSalaTerminada);
         sock.io.on('reconnect', onReconnect);
 
         const joinRes = await joinSalaSocket(salaId);
@@ -87,6 +104,7 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
       if (s) {
         if (onMensaje) s.off('mensaje:nuevo', onMensaje);
         if (onPresencia) s.off('presencia:actualizada', onPresencia);
+        if (onSalaTerminada) s.off('sala:terminada', onSalaTerminada);
         if (onReconnect) s.io.off('reconnect', onReconnect);
       }
       leaveSalaSocket(salaId);
