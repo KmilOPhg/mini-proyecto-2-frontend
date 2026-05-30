@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { IconPhoneHangup, IconX } from './room/RoomIcons';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface Props {
   open: boolean;
@@ -13,9 +14,9 @@ interface Props {
 export default function LeaveRoomModal({
   open, onClose, salaNombre, isHost, onLeaveRoom, onEndSession,
 }: Props) {
-  const backdropRef = useRef<HTMLDivElement>(null);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useModalA11y(open, { onClose, closeOnEscape: !ending });
 
   useEffect(() => {
     if (open) {
@@ -23,13 +24,6 @@ export default function LeaveRoomModal({
       setError(null);
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !ending) onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose, ending]);
 
   if (!open) return null;
 
@@ -46,13 +40,15 @@ export default function LeaveRoomModal({
 
   return (
     <div
-      ref={backdropRef}
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
-      onClick={e => { if (e.target === backdropRef.current && !ending) onClose(); }}
+      onClick={e => { if (e.target === dialogRef.current && !ending) onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="leave-room-title"
+      aria-describedby="leave-room-desc"
+      tabIndex={-1}
     >
       <div
         className="w-full max-w-[440px] rounded-2xl flex flex-col"
@@ -77,7 +73,7 @@ export default function LeaveRoomModal({
                 <h2 id="leave-room-title" className="m-0 text-[18px] font-bold" style={{ color: '#F8FAFC' }}>
                   {isHost ? '¿Cómo deseas salir?' : '¿Salir de la sala?'}
                 </h2>
-                <p className="mt-1 text-[13px]" style={{ color: '#64748B' }}>
+                <p id="leave-room-desc" className="mt-1 text-[13px]" style={{ color: '#64748B' }}>
                   {isHost
                     ? `Eres el anfitrión de "${salaNombre}". Elige si sales solo o terminas la sesión para todos.`
                     : `Vas a abandonar "${salaNombre}". Podrás volver a unirte con el ID de la sala.`}
@@ -96,7 +92,7 @@ export default function LeaveRoomModal({
           </div>
 
           {error && (
-            <p className="m-0 mb-3 text-[12.5px] px-3 py-2 rounded-[10px]" style={{ color: '#F87171', background: 'rgba(127,29,29,0.2)' }}>
+            <p role="alert" className="m-0 mb-3 text-[12.5px] px-3 py-2 rounded-[10px]" style={{ color: '#F87171', background: 'rgba(127,29,29,0.2)' }}>
               {error}
             </p>
           )}

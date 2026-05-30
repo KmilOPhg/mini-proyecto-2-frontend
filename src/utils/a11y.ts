@@ -17,6 +17,17 @@ export interface A11ySettings {
   fontSize: A11yFontSize;
 }
 
+/** Anuncia mensajes dinámicos (WCAG 4.1.3 Status Messages). */
+export function announce(message: string, priority: 'polite' | 'assertive' = 'polite') {
+  const id = priority === 'assertive' ? 'cf-live-assertive' : 'cf-live-polite';
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = '';
+  window.setTimeout(() => {
+    el.textContent = message;
+  }, 50);
+}
+
 export function applyA11ySettings({ screenReader, highContrast, fontSize }: A11ySettings) {
   const html = document.documentElement;
   html.classList.toggle('cf-sr-enhanced', screenReader);

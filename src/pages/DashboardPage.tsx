@@ -10,6 +10,7 @@ import Footer from '../components/Footer';
 import ProfileEditModal from '../components/ProfileEditModal';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
+import ComingSoonButton from '../components/ComingSoonButton';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function LogoIcon() {
@@ -123,7 +124,7 @@ function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout, roomC
 
 
 // ─── Room Card ────────────────────────────────────────────────────────────────
-function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (id: string) => void }) {
+function RoomCard({ r, view, onEnter: _onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (id: string) => void }) {
   const grad = COLOR_GRADIENTS[r.color];
 
   if (view === 'list') {
@@ -153,13 +154,13 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
         <div className="flex gap-1.5">
           <Tag label={r.code} />
         </div>
-        <button
-          onClick={() => onEnter(r.id)}
-          className="h-8 px-3 rounded-[9px] text-sm font-medium text-white cursor-pointer"
+        <ComingSoonButton
+          label="Entrar"
+          className="h-8 px-3 rounded-[9px] text-sm font-medium text-white"
           style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
         >
           Entrar
-        </button>
+        </ComingSoonButton>
       </article>
     );
   }
@@ -219,13 +220,13 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
           </svg>
           <span>{r.onlineCount} en la sala</span>
         </div>
-        <button
-          onClick={() => onEnter(r.id)}
-          className="h-8 px-3 rounded-[9px] text-[13px] font-medium text-white cursor-pointer"
+        <ComingSoonButton
+          label="Entrar"
+          className="h-8 px-3 rounded-[9px] text-[13px] font-medium text-white"
           style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
         >
           Entrar
-        </button>
+        </ComingSoonButton>
       </footer>
     </article>
   );
@@ -410,6 +411,7 @@ export default function DashboardPage() {
                         key={v}
                         role="tab"
                         aria-selected={filter === v}
+                        tabIndex={filter === v ? 0 : -1}
                         onClick={() => setFilter(v)}
                         className="px-3 py-1.5 rounded-[7px] text-[13px] font-medium cursor-pointer border-0 transition-colors"
                         style={{
@@ -431,6 +433,7 @@ export default function DashboardPage() {
                   >
                     <button
                       role="tab" aria-selected={view === 'grid'} aria-label="Cuadrícula"
+                      tabIndex={view === 'grid' ? 0 : -1}
                       onClick={() => setView('grid')}
                       className="p-1.5 rounded-[7px] cursor-pointer border-0 transition-colors"
                       style={{ background: view === 'grid' ? 'rgba(99,102,241,0.18)' : 'transparent', color: view === 'grid' ? '#818CF8' : '#94A3B8' }}
@@ -439,6 +442,7 @@ export default function DashboardPage() {
                     </button>
                     <button
                       role="tab" aria-selected={view === 'list'} aria-label="Lista"
+                      tabIndex={view === 'list' ? 0 : -1}
                       onClick={() => setView('list')}
                       className="p-1.5 rounded-[7px] cursor-pointer border-0 transition-colors"
                       style={{ background: view === 'list' ? 'rgba(99,102,241,0.18)' : 'transparent', color: view === 'list' ? '#818CF8' : '#94A3B8' }}

@@ -5,9 +5,11 @@ import { toast } from 'sonner';
 import { auth, googleProvider } from '../lib/firebase';
 import { createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from '../utils/institutionalEmail';
 
 export default function LoginPage() {
+  usePageTitle('Iniciar sesión');
   const navigate = useNavigate();
   const setSession = useAuthStore((s) => s.setSession);
   const markNeedsUsername = useAuthStore((s) => s.markNeedsUsername);
@@ -17,6 +19,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function validate(): string | null {
     const emailTrimmed = email.trim();
@@ -32,7 +35,12 @@ export default function LoginPage() {
   async function handleEmailLogin(e: React.SyntheticEvent) {
     e.preventDefault();
     const validationError = validate();
-    if (validationError) { toast.error(validationError); return; }
+    if (validationError) {
+      setFormError(validationError);
+      toast.error(validationError);
+      return;
+    }
+    setFormError(null);
 
     setLoading(true);
     try {
@@ -89,8 +97,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex" style={{ background: '#0F172A' }}>
-      {/* ── Left panel: form ── */}
-      <div className="flex flex-col justify-center w-full lg:max-w-[520px] px-8 sm:px-14 py-12" style={{ background: '#0F172A' }}>
+      <main id="main" className="flex flex-col justify-center w-full lg:max-w-[520px] px-8 sm:px-14 py-12" style={{ background: '#0F172A' }}>
         {/* Logo */}
         <div className="flex items-center gap-2.5 mb-10">
           <div className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: '#4F46E5' }}>
@@ -139,25 +146,32 @@ export default function LoginPage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleEmailLogin} noValidate className="space-y-4">
+        {formError && (
+          <p id="login-form-error" role="alert" className="mb-4 text-sm px-3 py-2 rounded-lg" style={{ color: '#FCA5A5', background: 'rgba(127,29,29,0.25)' }}>
+            {formError}
+          </p>
+        )}
+        <form onSubmit={handleEmailLogin} noValidate className="space-y-4" aria-describedby={formError ? 'login-form-error' : undefined}>
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>
+            <label htmlFor="login-email" className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>
               Correo electrónico
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }}>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }} aria-hidden="true">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5H4.5a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
               </span>
               <input
+                id="login-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
                 placeholder="tu@universidad.edu"
                 autoComplete="email"
                 required
+                aria-required="true"
                 disabled={loading}
                 className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition disabled:opacity-50 focus:outline-none"
                 style={{
@@ -174,7 +188,7 @@ export default function LoginPage() {
           {/* Password */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-sm font-medium" style={{ color: '#CBD5E1' }}>
+              <label htmlFor="login-password" className="block text-sm font-medium" style={{ color: '#CBD5E1' }}>
                 Contraseña
               </label>
               <button
@@ -186,18 +200,20 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }}>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }} aria-hidden="true">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
               </span>
               <input
+                id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setFormError(null); }}
                 placeholder="••••••••••"
                 autoComplete="current-password"
                 required
+                aria-required="true"
                 disabled={loading}
                 className="w-full pl-10 pr-11 py-3 rounded-xl text-sm transition disabled:opacity-50 focus:outline-none"
                 style={{
@@ -212,6 +228,7 @@ export default function LoginPage() {
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 transition hover:opacity-80"
                 style={{ color: '#475569' }}
               >
@@ -262,7 +279,7 @@ export default function LoginPage() {
             Crear cuenta
           </Link>
         </p>
-      </div>
+      </main>
 
       {/* ── Right panel: marketing ── */}
       <div

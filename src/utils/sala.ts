@@ -70,13 +70,14 @@ export type RoomCardData = {
 };
 
 export function salaToRoomCard(sala: SalaPublica, hostName: string): RoomCardData {
-  const subject = inferSubject(sala.nombre);
+  const subject = sala.materia ?? inferSubject(sala.nombre);
   const created = sala.createdAt ? new Date(sala.createdAt) : null;
   const time = created
     ? created.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
     : '—';
   const onlineCount = sala.usuariosEnLinea ?? 0;
   const totalMembers = sala.participantes.length;
+  const max = sala.aforoMaximo ?? 50;
 
   return {
     id: sala.id,
@@ -85,13 +86,14 @@ export function salaToRoomCard(sala: SalaPublica, hostName: string): RoomCardDat
     host: hostName,
     onlineCount,
     totalMembers,
-    max: 12,
+    max,
     status: onlineCount > 0 ? 'live' : 'scheduled',
     color: colorFromId(sala.id),
     time,
-    desc: onlineCount > 0
-      ? `${onlineCount} usuario${onlineCount === 1 ? '' : 's'} en la sala ahora.`
-      : 'Nadie conectado en este momento.',
+    desc: sala.descripcion?.trim()
+      || (onlineCount > 0
+        ? `${onlineCount} usuario${onlineCount === 1 ? '' : 's'} en la sala ahora.`
+        : 'Nadie conectado en este momento.'),
     code: sala.codigoInvitacion ?? formatSalaCode(sala.id),
   };
 }

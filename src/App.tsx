@@ -11,6 +11,7 @@ import RegisterPage from './pages/RegisterPage';
 import UsernameSetupPage from './pages/UsernameSetupPage';
 import DashboardPage from './pages/DashboardPage';
 import RoomPage from './pages/RoomPage';
+import RouteA11y from './components/RouteA11y';
 
 function AuthInit() {
   const init = useAuthStore((s) => s.init);
@@ -25,11 +26,18 @@ function RootRedirect() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <svg className="w-8 h-8 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+      <div
+        className="min-h-screen flex items-center justify-center bg-white"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Cargando aplicación"
+      >
+        <svg className="w-8 h-8 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
         </svg>
+        <span className="cf-sr-only">Cargando…</span>
       </div>
     );
   }
@@ -68,9 +76,11 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <a href="#main" className="cf-skip-link">Saltar al contenido</a>
+      <RouteA11y />
+      <a href="#main" className="cf-skip-link">Saltar al contenido principal</a>
       <Toaster
         position="bottom-right"
+        closeButton
         toastOptions={{
           style: {
             background: '#1E293B',
