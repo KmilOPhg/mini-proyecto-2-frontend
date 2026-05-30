@@ -411,6 +411,7 @@ export default function DashboardPage() {
                         key={v}
                         role="tab"
                         aria-selected={filter === v}
+                        tabIndex={filter === v ? 0 : -1}
                         onClick={() => setFilter(v)}
                         className="px-3 py-1.5 rounded-[7px] text-[13px] font-medium cursor-pointer border-0 transition-colors"
                         style={{
@@ -432,6 +433,7 @@ export default function DashboardPage() {
                   >
                     <button
                       role="tab" aria-selected={view === 'grid'} aria-label="Cuadrícula"
+                      tabIndex={view === 'grid' ? 0 : -1}
                       onClick={() => setView('grid')}
                       className="p-1.5 rounded-[7px] cursor-pointer border-0 transition-colors"
                       style={{ background: view === 'grid' ? 'rgba(99,102,241,0.18)' : 'transparent', color: view === 'grid' ? '#818CF8' : '#94A3B8' }}
@@ -440,6 +442,7 @@ export default function DashboardPage() {
                     </button>
                     <button
                       role="tab" aria-selected={view === 'list'} aria-label="Lista"
+                      tabIndex={view === 'list' ? 0 : -1}
                       onClick={() => setView('list')}
                       className="p-1.5 rounded-[7px] cursor-pointer border-0 transition-colors"
                       style={{ background: view === 'list' ? 'rgba(99,102,241,0.18)' : 'transparent', color: view === 'list' ? '#818CF8' : '#94A3B8' }}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { refreshPresenceSocket } from '../lib/socket';
@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import UsernameField from './UsernameField';
 import { applyA11ySettings, LS_SR, LS_HC, LS_FS } from '../utils/a11y';
 import type { A11yFontSize } from '../utils/a11y';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 type ModalTab = 'perfil' | 'cuenta' | 'accesibilidad' | 'peligro';
 
@@ -35,11 +36,13 @@ interface Props {
 
 // ── Small components ──────────────────────────────────────────────────────────
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={value}
+      aria-label={label}
       onClick={() => onChange(!value)}
       className="relative flex-none cursor-pointer border-0 rounded-full transition-colors overflow-hidden"
       style={{
@@ -184,7 +187,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
     (localStorage.getItem(LS_FS) as A11yFontSize) ?? 'md'
   );
 
-  const backdropRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useModalA11y(open, { onClose });
 
   useEffect(() => {
     if (user && open) {
@@ -208,13 +211,6 @@ export default function ProfileEditModal({ open, onClose }: Props) {
       setSavingPw(false);
     }
   }, [user, open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
 
   if (!open || !user) return null;
   const u = user; // const alias — narrows out null for closures
@@ -395,6 +391,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="profile-modal-title"
+      tabIndex={-1}
     >
       <div
         className="w-full max-w-2xl rounded-2xl flex flex-col overflow-hidden"
@@ -781,13 +778,13 @@ export default function ProfileEditModal({ open, onClose }: Props) {
               <AccountRow
                 title="Lector de pantalla optimizado"
                 description="Activado por defecto · Anuncios extendidos, descripciones largas y atajos extra. La base WCAG 2.2 siempre está activa."
-                action={<Toggle value={screenReader} onChange={setScreenReader} />}
+                action={<Toggle value={screenReader} onChange={setScreenReader} label="Lector de pantalla optimizado" />}
               />
               <Divider />
               <AccountRow
                 title="Alto contraste WCAG AAA"
                 description="Aumenta la diferencia de contraste de superficies y texto."
-                action={<Toggle value={highContrast} onChange={setHighContrast} />}
+                action={<Toggle value={highContrast} onChange={setHighContrast} label="Alto contraste WCAG AAA" />}
               />
               <Divider />
               <AccountRow

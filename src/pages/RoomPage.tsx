@@ -12,6 +12,7 @@ import {
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
 import ComingSoonButton from '../components/ComingSoonButton';
 import LeaveRoomModal from '../components/LeaveRoomModal';
+import { usePageTitle } from '../hooks/usePageTitle';
 import {
   IconArrowLeft, IconClock, IconExpand, IconLayoutGrid, IconLink,
   IconMessageSquare, IconMic, IconMonitorUp, IconMoreHorizontal,
@@ -251,6 +252,8 @@ export default function RoomPage() {
 
   const skipSalaTerminadaRef = useRef(false);
 
+  usePageTitle(sala?.nombre ? `Sala: ${sala.nombre}` : 'Sala de estudio');
+
   const handleSalaTerminada = useCallback((mensaje: string) => {
     if (skipSalaTerminadaRef.current) return;
     toast.info(mensaje);
@@ -344,23 +347,31 @@ export default function RoomPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080E1A' }}>
-        <svg className="w-8 h-8 animate-spin" style={{ color: '#818CF8' }} fill="none" viewBox="0 0 24 24">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: '#080E1A' }}
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Cargando sala"
+      >
+        <svg className="w-8 h-8 animate-spin" style={{ color: '#818CF8' }} fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
         </svg>
+        <span className="cf-sr-only">Cargando sala…</span>
       </div>
     );
   }
 
   if (error || !sala) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6" style={{ background: '#080E1A', color: '#F8FAFC' }}>
-        <p className="m-0">{error ?? 'Sala no encontrada.'}</p>
-        <button onClick={() => navigate('/dashboard')} className="px-4 py-2 rounded-[10px] text-sm font-medium cursor-pointer text-white" style={{ background: '#6366F1' }}>
+      <main id="main" className="min-h-screen flex flex-col items-center justify-center gap-4 p-6" style={{ background: '#080E1A', color: '#F8FAFC' }}>
+        <p className="m-0" role="alert">{error ?? 'Sala no encontrada.'}</p>
+        <button type="button" onClick={() => navigate('/dashboard')} className="px-4 py-2 rounded-[10px] text-sm font-medium cursor-pointer text-white" style={{ background: '#6366F1' }}>
           Volver al inicio
         </button>
-      </div>
+      </main>
     );
   }
 
@@ -385,8 +396,7 @@ export default function RoomPage() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
-
-      {/* ── Header ── */}
+      <main id="main" className="flex flex-col flex-1 min-h-0">
       <header
         className="flex items-center gap-3 px-5 py-3 flex-none"
         style={{ background: 'rgba(8,14,26,0.95)', borderBottom: '1px solid rgba(148,163,184,0.1)' }}
@@ -508,9 +518,9 @@ export default function RoomPage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4" role="log" aria-live="polite" aria-relevant="additions" aria-label="Mensajes del chat">
               {chatError && (
-                <p className="m-0 text-center text-[12px] px-3 py-2 rounded-[10px]" style={{ color: '#F87171', background: 'rgba(127,29,29,0.2)' }}>
+                <p role="alert" className="m-0 text-center text-[12px] px-3 py-2 rounded-[10px]" style={{ color: '#F87171', background: 'rgba(127,29,29,0.2)' }}>
                   {chatError}
                 </p>
               )}
@@ -549,6 +559,7 @@ export default function RoomPage() {
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 placeholder="Escribe un mensaje..."
+                aria-label="Escribe un mensaje"
                 maxLength={2000}
                 disabled={!chatReady}
                 autoFocus
@@ -664,6 +675,7 @@ export default function RoomPage() {
           </div>
         </footer>
       </div>
+      </main>
 
       <LeaveRoomModal
         open={showLeaveModal}

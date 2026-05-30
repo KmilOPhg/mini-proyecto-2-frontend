@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { joinSala, joinSalaPorCodigo } from '../services/api';
 import { isCodigoInvitacion, parseSalaJoinInput } from '../utils/sala';
 import { useAuthStore } from '../store/authStore';
-
 import { COMING_SOON_LABEL } from './ComingSoonButton';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface Props {
   open: boolean;
@@ -22,7 +22,7 @@ function XIcon() {
 
 export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
   const jwtToken = useAuthStore(s => s.jwtToken);
-  const backdropRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useModalA11y(open, { onClose });
   const [salaId, setSalaId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [_joining, setJoining] = useState(false);
@@ -34,13 +34,6 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
       setJoining(false);
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -67,13 +60,15 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
 
   return (
     <div
-      ref={backdropRef}
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
-      onClick={e => { if (e.target === backdropRef.current) onClose(); }}
+      onClick={e => { if (e.target === dialogRef.current) onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="join-room-title"
+      aria-describedby="join-room-desc"
+      tabIndex={-1}
     >
       <div
         className="w-full max-w-[440px] rounded-2xl flex flex-col"
@@ -89,7 +84,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
               <h2 id="join-room-title" className="m-0 text-[18px] font-bold" style={{ color: '#F8FAFC' }}>
                 Unirse por ID
               </h2>
-              <p className="mt-1 text-[13px]" style={{ color: '#64748B' }}>
+              <p id="join-room-desc" className="mt-1 text-[13px]" style={{ color: '#64748B' }}>
                 Ingresa el identificador de la sala para entrar.
               </p>
             </div>
@@ -104,10 +99,11 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium" style={{ color: '#94A3B8' }}>
+            <label htmlFor="join-room-id" className="text-[13px] font-medium" style={{ color: '#94A3B8' }}>
               ID de la sala
             </label>
             <input
+              id="join-room-id"
               type="text"
               value={salaId}
               onChange={e => { setSalaId(e.target.value); setError(null); }}
@@ -125,7 +121,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
               }}
             />
             {error && (
-              <p className="m-0 text-[12.5px]" style={{ color: '#F87171' }}>{error}</p>
+              <p id="join-room-error" role="alert" className="m-0 text-[12.5px]" style={{ color: '#F87171' }}>{error}</p>
             )}
             <p className="m-0 text-[12px]" style={{ color: '#475569' }}>
               Usa el código CRF que aparece en la sala (botón Copiar).
