@@ -187,8 +187,8 @@ function ParticipantTile({
           className="text-[12px] sm:text-[12.5px] font-medium px-2 py-0.5 rounded-[6px] truncate max-w-full"
           style={{ background: 'rgba(0,0,0,0.5)', color: '#F8FAFC' }}
         >
-          {usuario.nombre}
-          {isHost && (
+          {isYou ? 'Tú' : isHost ? 'Host' : usuario.nombre}
+          {isHost && isYou && (
             <span className="ml-1.5 text-[10px] font-bold tracking-wide" style={{ color: '#A5B4FC' }}>
               HOST
             </span>
@@ -443,7 +443,7 @@ export default function RoomPage() {
           </div>
           <div className="hidden md:flex items-center gap-3 mt-0.5 text-[11.5px]" style={{ color: '#64748B' }}>
             <span>ID: <span style={{ color: '#94A3B8' }}>{roomCode}</span></span>
-            <span>Anfitrión: <span style={{ color: '#94A3B8' }}>{hostNombre}</span></span>
+            <span>Host: <span style={{ color: '#94A3B8' }}>{hostNombre}</span></span>
             <span className="inline-flex items-center gap-1 font-mono tabular-nums" style={{ color: '#818CF8' }}>
               <IconClock size={12} strokeWidth={2} />
               {elapsed}
