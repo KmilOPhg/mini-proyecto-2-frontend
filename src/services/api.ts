@@ -67,6 +67,13 @@ export function createSession(idToken: string) {
   });
 }
 
+export function logoutSession(token: string) {
+  return request<null>('/auth/logout', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function completeGoogleUsername(idToken: string, username: string) {
   return request<{ token: string; user: StudentUser }>('/auth/google/complete-username', {
     method: 'POST',

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { createSession, type StudentUser } from '../services/api';
+import { createSession, logoutSession, type StudentUser } from '../services/api';
 
 const JWT_KEY = 'cf_jwt';
 const USER_KEY = 'cf_user';
@@ -44,6 +44,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   async logout() {
+    const jwtToken = useAuthStore.getState().jwtToken;
+    if (jwtToken) {
+      try {
+        await logoutSession(jwtToken);
+      } catch {
+        // Cerrar sesión local aunque falle el aviso al servidor
+      }
+    }
     await auth.signOut();
     localStorage.removeItem(JWT_KEY);
     localStorage.removeItem(USER_KEY);
