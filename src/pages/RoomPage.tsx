@@ -12,6 +12,7 @@ import {
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
 import ComingSoonButton from '../components/ComingSoonButton';
 import LeaveRoomModal from '../components/LeaveRoomModal';
+import EditRoomModal from '../components/EditRoomModal';
 import { usePageTitle } from '../hooks/usePageTitle';
 import {
   IconArrowLeft, IconClock, IconExpand, IconLayoutGrid, IconLink,
@@ -249,6 +250,7 @@ export default function RoomPage() {
   const [chatOpen, setChatOpen] = useState(true);
   const [elapsed, setElapsed] = useState('00:00');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showEditRoomModal, setShowEditRoomModal] = useState(false);
 
   const skipSalaTerminadaRef = useRef(false);
 
@@ -394,12 +396,24 @@ export default function RoomPage() {
     navigate('/dashboard');
   }
 
+  function handleOpenSettings() {
+    if (isHost) {
+      setShowEditRoomModal(true);
+      return;
+    }
+    toast.info('Solo el anfitrión puede editar la configuración de la sala.');
+  }
+
+  function handleRoomUpdated(updated: SalaPublica) {
+    setSala(updated);
+  }
+
   return (
-    <div className="h-svh flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
+    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
       <main id="main" className="flex flex-col flex-1 min-h-0">
       <header
         className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 flex-none pt-safe"
-        style={{ background: 'rgba(8,14,26,0.95)', borderBottom: '1px solid rgba(148,163,184,0.1)' }}
+        style={{ background: '#080E1A', borderBottom: '1px solid rgba(148,163,184,0.1)' }}
       >
         <button
           onClick={() => navigate('/dashboard')}
@@ -454,11 +468,9 @@ export default function RoomPage() {
           <IconBtn label="Chat" active={chatOpen} badge={mensajes.length} onClick={() => setChatOpen(v => !v)}>
             <IconMessageSquare size={16} />
           </IconBtn>
-          <span className="hidden sm:contents">
-            <IconBtn label="Configuración" comingSoon>
-              <IconSettings size={16} />
-            </IconBtn>
-          </span>
+          <IconBtn label="Configuración" onClick={handleOpenSettings}>
+            <IconSettings size={16} />
+          </IconBtn>
         </div>
       </header>
 
@@ -698,6 +710,15 @@ export default function RoomPage() {
         onLeaveRoom={handleLeaveRoom}
         onEndSession={handleEndSession}
       />
+
+      {isHost && (
+        <EditRoomModal
+          open={showEditRoomModal}
+          onClose={() => setShowEditRoomModal(false)}
+          sala={sala}
+          onUpdated={handleRoomUpdated}
+        />
+      )}
     </div>
   );
 }

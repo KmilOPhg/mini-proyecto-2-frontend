@@ -196,3 +196,11 @@ export function deleteSala(token: string, id: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export function updateSala(token: string, id: string, nombre: string) {
+  return request<SalaPublica>(`/salas/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ nombre: nombre.trim() }),
+  });
+}
