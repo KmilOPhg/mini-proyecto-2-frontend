@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UsernameSetupPage from './pages/UsernameSetupPage';
 import DashboardPage from './pages/DashboardPage';
+import RoomPage from './pages/RoomPage';
 
 function AuthInit() {
   const init = useAuthStore((s) => s.init);
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
         <Route path="/username-setup" element={<RequireNeedsUsername><UsernameSetupPage /></RequireNeedsUsername>} />
         <Route path="/dashboard" element={<RequireSession><DashboardPage /></RequireSession>} />
+        <Route path="/salas/:id" element={<RequireSession><RoomPage /></RequireSession>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

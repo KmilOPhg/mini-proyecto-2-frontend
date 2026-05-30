@@ -1,30 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '../store/authStore';
+import { listMisSalas } from '../services/api';
+import type { SalaPublica } from '../services/api';
+import { salaToRoomCard, COLOR_GRADIENTS, getInitials, type RoomCardData } from '../utils/sala';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProfileEditModal from '../components/ProfileEditModal';
 import CreateRoomModal from '../components/CreateRoomModal';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-type RoomColor = 'indigo' | 'violet' | 'sky' | 'emerald' | 'amber' | 'rose';
-type Room = {
-  id: string; title: string; subject: string; host: string;
-  members: number; max: number; status: 'live' | 'scheduled';
-  tags: string[]; color: RoomColor; time: string; desc: string;
-};
-
-const ROOMS: Room[] = [];
-
-const COLOR_GRADIENTS: Record<RoomColor, string> = {
-  indigo:  'linear-gradient(135deg, #4F46E5 0%, #1E1B4B 100%)',
-  violet:  'linear-gradient(135deg, #7C3AED 0%, #2E1065 100%)',
-  sky:     'linear-gradient(135deg, #0284C7 0%, #0C2A4A 100%)',
-  emerald: 'linear-gradient(135deg, #059669 0%, #042F2E 100%)',
-  amber:   'linear-gradient(135deg, #D97706 0%, #3F1F08 100%)',
-  rose:    'linear-gradient(135deg, #E11D48 0%, #4C0519 100%)',
-};
+import JoinRoomModal from '../components/JoinRoomModal';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function LogoIcon() {
@@ -65,12 +50,13 @@ const UserIcon = ({ size = 18 }: { size?: number }) => (
   </svg>
 );
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout }: {
+function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout, roomCount }: {
   activeTab: string;
   setActiveTab: (t: string) => void;
   onOpenProfile: () => void;
   user: { nombres: string | null; apellidos: string | null; username: string | null; avatar: string | null } | null;
   onLogout: () => void;
+  roomCount: number;
 }) {
   return (
     <aside
@@ -94,7 +80,7 @@ function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout }: {
       <nav aria-label="Secciones" className="flex-1">
         <ul className="list-none m-0 p-0 flex flex-col gap-0.5">
           {([
-            ['rooms', 'Salas', <RoomsIcon />, 3],
+            ['rooms', 'Salas', <RoomsIcon />, roomCount > 0 ? roomCount : null],
             ['profile', 'Perfil', <UserIcon />, null],
           ] as const).map(([key, label, icon, badge]) => {
             const active = activeTab === key;
@@ -137,7 +123,7 @@ function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout }: {
 
 
 // ─── Room Card ────────────────────────────────────────────────────────────────
-function RoomCard({ r, view }: { r: Room; view: 'grid' | 'list' }) {
+function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (id: string) => void }) {
   const grad = COLOR_GRADIENTS[r.color];
 
   if (view === 'list') {
@@ -165,9 +151,10 @@ function RoomCard({ r, view }: { r: Room; view: 'grid' | 'list' }) {
           </p>
         </div>
         <div className="flex gap-1.5">
-          {r.tags.map(t => <Tag key={t} label={t} />)}
+          <Tag label={r.code} />
         </div>
         <button
+          onClick={() => onEnter(r.id)}
           className="h-8 px-3 rounded-[9px] text-sm font-medium text-white cursor-pointer"
           style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
         >
@@ -214,9 +201,9 @@ function RoomCard({ r, view }: { r: Room; view: 'grid' | 'list' }) {
       {/* Footer */}
       <footer className="grid items-center gap-3 px-[18px] pt-3 pb-4" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
         <div className="flex">
-          {[['MR', '#6366F1'], ['JS', '#38BDF8'], ['AL', '#22C55E']].map(([init, bg], i) => (
-            <span key={i} className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold text-white border-2" style={{ background: bg, borderColor: '#1E293B', marginLeft: i > 0 ? -8 : 0 }}>
-              {init}
+          {Array.from({ length: Math.min(r.members, 3) }).map((_, i) => (
+            <span key={i} className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold text-white border-2" style={{ background: '#6366F1', borderColor: '#1E293B', marginLeft: i > 0 ? -8 : 0 }}>
+              {getInitials(r.host)}
             </span>
           ))}
           {r.members > 3 && (
@@ -231,6 +218,7 @@ function RoomCard({ r, view }: { r: Room; view: 'grid' | 'list' }) {
           <span>{r.members}/{r.max}</span>
         </div>
         <button
+          onClick={() => onEnter(r.id)}
           className="h-8 px-3 rounded-[9px] text-[13px] font-medium text-white cursor-pointer"
           style={{ background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)' }}
         >
@@ -295,23 +283,60 @@ function Tag({ label }: { label: string }) {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
+  const jwtToken = useAuthStore(s => s.jwtToken);
   const logout = useAuthStore(s => s.logout);
 
+  const [salas, setSalas] = useState<SalaPublica[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'live' | 'scheduled'>('all');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [showJoinRoomModal, setShowJoinRoomModal] = useState(false);
 
-  const filtered = useMemo(() =>
-    ROOMS.filter(r =>
-      (filter === 'all' || r.status === filter) &&
-      (q === '' || (r.title + r.subject + r.host).toLowerCase().includes(q.toLowerCase()))
-    ), [q, filter]
+  const hostName = user?.username
+    ?? [user?.nombres, user?.apellidos].filter(Boolean).join(' ')
+    ?? 'Tú';
+
+  const rooms = useMemo(
+    () => salas.map(s => salaToRoomCard(s, hostName.split(' ')[0] ?? hostName)),
+    [salas, hostName],
   );
 
-  const liveCount = ROOMS.filter(r => r.status === 'live').length;
+  const fetchSalas = useCallback(async () => {
+    if (!jwtToken) return;
+    setLoadingRooms(true);
+    try {
+      const data = await listMisSalas(jwtToken);
+      setSalas(data.items);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cargar las salas.');
+    } finally {
+      setLoadingRooms(false);
+    }
+  }, [jwtToken]);
+
+  useEffect(() => { fetchSalas(); }, [fetchSalas]);
+
+  const filtered = useMemo(() =>
+    rooms.filter(r =>
+      (filter === 'all' || r.status === filter) &&
+      (q === '' || (r.title + r.subject + r.host + r.code).toLowerCase().includes(q.toLowerCase()))
+    ), [rooms, q, filter]
+  );
+
+  const liveCount = rooms.filter(r => r.status === 'live').length;
+
+  function handleEnterRoom(id: string) {
+    navigate(`/salas/${id}`);
+  }
+
+  function handleRoomCreated(sala: SalaPublica) {
+    setSalas(prev => [sala, ...prev.filter(s => s.id !== sala.id)]);
+    navigate(`/salas/${sala.id}`);
+  }
 
   async function handleLogout() {
     await logout();
@@ -334,10 +359,19 @@ export default function DashboardPage() {
           onOpenProfile={() => setShowProfileModal(true)}
           user={user}
           onLogout={handleLogout}
+          roomCount={salas.length}
         />
 
         <main id="main" className="min-w-0 flex flex-col" style={{ color: '#F8FAFC' }}>
-          <Header q={q} setQ={setQ} user={user} onOpenProfile={() => setShowProfileModal(true)} onCreateRoom={() => setShowCreateRoomModal(true)} />
+          <Header
+            q={q}
+            setQ={setQ}
+            user={user}
+            roomCount={salas.length}
+            onOpenProfile={() => setShowProfileModal(true)}
+            onCreateRoom={() => setShowCreateRoomModal(true)}
+            onJoinById={() => setShowJoinRoomModal(true)}
+          />
 
           {/* Body */}
           <div className="p-7 flex flex-col gap-8 w-full max-w-[1480px] mx-auto">
@@ -406,13 +440,22 @@ export default function DashboardPage() {
               </header>
 
               {/* Room cards */}
-              <div
-                className={view === 'grid' ? 'grid gap-4' : 'flex flex-col gap-2'}
-                style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' } : {}}
-              >
-                {filtered.map(r => <RoomCard key={r.id} r={r} view={view} />)}
-                <NewRoomCard view={view} onClick={() => setShowCreateRoomModal(true)} />
-              </div>
+              {loadingRooms ? (
+                <div className="flex items-center justify-center py-16">
+                  <svg className="w-7 h-7 animate-spin" style={{ color: '#818CF8' }} fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                </div>
+              ) : (
+                <div
+                  className={view === 'grid' ? 'grid gap-4' : 'flex flex-col gap-2'}
+                  style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' } : {}}
+                >
+                  {filtered.map(r => <RoomCard key={r.id} r={r} view={view} onEnter={handleEnterRoom} />)}
+                  <NewRoomCard view={view} onClick={() => setShowCreateRoomModal(true)} />
+                </div>
+              )}
             </section>
           </div>
         </main>
@@ -426,6 +469,13 @@ export default function DashboardPage() {
       <CreateRoomModal
         open={showCreateRoomModal}
         onClose={() => setShowCreateRoomModal(false)}
+        onCreated={handleRoomCreated}
+      />
+
+      <JoinRoomModal
+        open={showJoinRoomModal}
+        onClose={() => setShowJoinRoomModal(false)}
+        onJoined={handleEnterRoom}
       />
     </>
   );

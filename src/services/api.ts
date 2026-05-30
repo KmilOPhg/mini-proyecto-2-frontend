@@ -117,3 +117,44 @@ export function createSala(token: string, nombre: string) {
     body: JSON.stringify({ nombre }),
   });
 }
+
+export type ListarMisSalasData = {
+  items: SalaPublica[];
+  total: number;
+  vacio: boolean;
+};
+
+export function listMisSalas(token: string) {
+  return request<ListarMisSalasData>('/salas/mias', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getSala(token: string, id: string) {
+  return request<SalaPublica>(`/salas/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function joinSala(token: string, id: string) {
+  return request<SalaPublica>(`/salas/${encodeURIComponent(id)}/unirse`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export type MensajePublico = {
+  id: string;
+  salaId: string;
+  uid: string;
+  username: string;
+  texto: string;
+  createdAt: string | null;
+};
+
+export function getMensajes(token: string, salaId: string, limit = 50) {
+  return request<MensajePublico[]>(
+    `/salas/${encodeURIComponent(salaId)}/mensajes?limit=${limit}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}

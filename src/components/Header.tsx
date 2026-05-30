@@ -22,11 +22,13 @@ interface HeaderProps {
   q: string;
   setQ: (v: string) => void;
   user: Pick<StudentUser, 'nombres' | 'apellidos' | 'avatar'> | null;
+  roomCount: number;
   onOpenProfile: () => void;
   onCreateRoom: () => void;
+  onJoinById: () => void;
 }
 
-export default function Header({ q, setQ, user, onOpenProfile, onCreateRoom }: HeaderProps) {
+export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCreateRoom, onJoinById }: HeaderProps) {
   const n = user?.nombres?.trim() ?? '';
   const a = user?.apellidos?.trim() ?? '';
   const initials = ((n[0] ?? '') + (a[0] ?? '')).toUpperCase() || 'CF';
@@ -47,7 +49,11 @@ export default function Header({ q, setQ, user, onOpenProfile, onCreateRoom }: H
           Hola, {user?.nombres?.split(' ')[0] ?? user?.apellidos?.split(' ')[0] ?? 'Estudiante'} 👋
         </h1>
         <p className="mt-0.5 text-[13px]" style={{ color: '#94A3B8' }}>
-          Tienes <strong style={{ color: '#F8FAFC', fontWeight: 600 }}>3 sesiones</strong> activas.
+          Tienes{' '}
+          <strong style={{ color: '#F8FAFC', fontWeight: 600 }}>
+            {roomCount} {roomCount === 1 ? 'sala' : 'salas'}
+          </strong>{' '}
+          creada{roomCount === 1 ? '' : 's'}.
         </p>
       </div>
 
@@ -72,6 +78,7 @@ export default function Header({ q, setQ, user, onOpenProfile, onCreateRoom }: H
       {/* Actions */}
       <div className="flex items-center gap-2">
         <button
+          onClick={onJoinById}
           className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] text-sm font-medium cursor-pointer transition-colors"
           style={{ background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.14)', color: '#F8FAFC' }}
           aria-label="Unirse por ID"
