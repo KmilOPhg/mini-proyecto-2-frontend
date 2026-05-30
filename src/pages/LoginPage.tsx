@@ -7,6 +7,7 @@ import { createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from '../utils/institutionalEmail';
+import AuthPageLayout, { AuthBrand } from '../components/AuthPageLayout';
 
 export default function LoginPage() {
   usePageTitle('Iniciar sesión');
@@ -96,32 +97,30 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#0F172A' }}>
-      <main id="main" className="flex flex-col justify-center w-full lg:max-w-[520px] px-8 sm:px-14 py-12" style={{ background: '#0F172A' }}>
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-10">
-          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: '#4F46E5' }}>
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="text-white text-base font-semibold">CrossFlow</span>
-        </div>
+    <AuthPageLayout
+      footer={
+        <>
+          ¿No tienes cuenta?{' '}
+          <Link to="/register" className="font-medium transition hover:opacity-80" style={{ color: '#6366F1' }}>
+            Crear cuenta
+          </Link>
+        </>
+      }
+    >
+      <AuthBrand />
 
-        {/* Heading */}
-        <h1 className="text-3xl font-bold text-white mb-1.5">Bienvenido de vuelta</h1>
-        <p className="text-sm mb-8" style={{ color: '#94A3B8' }}>
-          Accede a tus salas y continúa donde lo dejaste.
-        </p>
+      <h1 className="text-2xl font-bold text-white mb-1">Bienvenido de vuelta</h1>
+      <p className="text-[13px] mb-4" style={{ color: '#94A3B8' }}>
+        Accede a tus salas y continúa donde lo dejaste.
+      </p>
 
-        {/* Google button */}
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={loading || googleLoading}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#F8FAFC' }}
-        >
+      <button
+        type="button"
+        onClick={handleGoogleLogin}
+        disabled={loading || googleLoading}
+        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#F8FAFC' }}
+      >
           {googleLoading ? (
             <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -139,7 +138,7 @@ export default function LoginPage() {
         </button>
 
         {/* Divider */}
-        <div className="my-6 flex items-center gap-3">
+        <div className="my-3 flex items-center gap-3">
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
           <span className="text-xs" style={{ color: '#475569' }}>o con correo</span>
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
@@ -147,18 +146,18 @@ export default function LoginPage() {
 
         {/* Form */}
         {formError && (
-          <p id="login-form-error" role="alert" className="mb-4 text-sm px-3 py-2 rounded-lg" style={{ color: '#FCA5A5', background: 'rgba(127,29,29,0.25)' }}>
+          <p id="login-form-error" role="alert" className="mb-3 text-[13px] px-3 py-2 rounded-lg" style={{ color: '#FCA5A5', background: 'rgba(127,29,29,0.25)' }}>
             {formError}
           </p>
         )}
-        <form onSubmit={handleEmailLogin} noValidate className="space-y-4" aria-describedby={formError ? 'login-form-error' : undefined}>
+        <form onSubmit={handleEmailLogin} noValidate className="space-y-3" aria-describedby={formError ? 'login-form-error' : undefined}>
           {/* Email */}
-          <div>
-            <label htmlFor="login-email" className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>
+          <div className="cf-field">
+            <label htmlFor="login-email" className="block text-[13px] font-medium mb-1" style={{ color: '#CBD5E1' }}>
               Correo electrónico
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }} aria-hidden="true">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#475569' }} aria-hidden="true">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5H4.5a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
@@ -173,22 +172,19 @@ export default function LoginPage() {
                 required
                 aria-required="true"
                 disabled={loading}
-                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition disabled:opacity-50 focus:outline-none"
+                className="cf-auth-input w-full pl-10 pr-4 py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
                   color: '#F8FAFC',
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#6366F1'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.boxShadow = 'none'; }}
               />
             </div>
           </div>
 
           {/* Password */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="login-password" className="block text-sm font-medium" style={{ color: '#CBD5E1' }}>
+          <div className="cf-field">
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="login-password" className="block text-[13px] font-medium" style={{ color: '#CBD5E1' }}>
                 Contraseña
               </label>
               <button
@@ -200,7 +196,7 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }} aria-hidden="true">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#475569' }} aria-hidden="true">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
@@ -215,14 +211,11 @@ export default function LoginPage() {
                 required
                 aria-required="true"
                 disabled={loading}
-                className="w-full pl-10 pr-11 py-3 rounded-xl text-sm transition disabled:opacity-50 focus:outline-none"
+                className="cf-auth-input w-full pl-10 pr-11 py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
                   color: '#F8FAFC',
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#6366F1'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.boxShadow = 'none'; }}
               />
               <button
                 type="button"
@@ -246,21 +239,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Remember me */}
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              className="w-4 h-4 rounded accent-indigo-600"
-              style={{ accentColor: '#6366F1' }}
-            />
-            <span className="text-sm" style={{ color: '#94A3B8' }}>Mantener sesión iniciada</span>
-          </label>
-
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full py-3 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+            className="w-full mt-5 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(180deg, #6366F1 0%, #4F46E5 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}
           >
             {loading && (
@@ -272,44 +254,7 @@ export default function LoginPage() {
             {loading ? 'Ingresando…' : 'Iniciar sesión →'}
           </button>
         </form>
-
-        <p className="mt-7 text-sm text-center" style={{ color: '#64748B' }}>
-          ¿No tienes cuenta?{' '}
-          <Link to="/register" className="font-medium transition hover:opacity-80" style={{ color: '#6366F1' }}>
-            Crear cuenta
-          </Link>
-        </p>
-      </main>
-
-      {/* ── Right panel: marketing ── */}
-      <div
-        className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #1E293B 100%)' }}
-      >
-        {/* Blobs */}
-        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.08)' }} />
-        <div className="absolute -bottom-40 left-0 w-[400px] h-[400px] rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(59,130,246,0.06)' }} />
-
-        <div className="relative z-10 max-w-lg">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-8 text-xs font-medium" style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#A5B4FC' }}>
-            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            Estudio colaborativo en tiempo real
-          </div>
-
-          {/* Heading */}
-          <h2 className="text-5xl font-bold leading-tight mb-5 text-white">
-            Salas accesibles para aprender, crear y avanzar juntos.
-          </h2>
-          <p className="text-base leading-relaxed mb-10" style={{ color: '#64748B' }}>
-            Video HD, chat instantáneo, pizarra compartida y herramientas de accesibilidad WCAG 2.2 integradas en cada sesión.
-          </p>
-        </div>
-      </div>
-    </div>
+    </AuthPageLayout>
   );
 }
 

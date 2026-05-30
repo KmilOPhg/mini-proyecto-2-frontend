@@ -6,6 +6,8 @@ import { auth, googleProvider } from '../lib/firebase';
 import { registerStudent, createSession } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import UsernameField from '../components/UsernameField';
+import AvatarPickerField from '../components/AvatarPickerField';
+import AuthPageLayout, { AuthBrand } from '../components/AuthPageLayout';
 import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from '../utils/institutionalEmail';
 
 const PASSWORD_RE = /^(?=.*[A-Za-zÁÉÍÓÚáéíóúÑñ])(?=.*\d).+$/;
@@ -40,8 +42,6 @@ export default function RegisterPage() {
     if (!form.username.trim()) return 'El nombre de usuario es obligatorio.';
     if (usernameAvailable === null) return 'Verifica la disponibilidad del nombre de usuario.';
     if (usernameAvailable === false) return 'El nombre de usuario no está disponible.';
-    if (form.avatar.trim() && !/^https?:\/\/.+/.test(form.avatar.trim()))
-      return 'El avatar debe ser una URL válida (http/https).';
     return null;
   }
 
@@ -134,31 +134,29 @@ export default function RegisterPage() {
     PASSWORD_RE.test(form.password);
 
   /* ── Avatar preview initials ── */
-  const initials = form.nombres.trim().charAt(0).toUpperCase() + form.apellidos.trim().charAt(0).toUpperCase() || '?';
-  const avatarIsValidUrl = /^https?:\/\/.+/.test(form.avatar.trim());
+  const initials =
+    (form.nombres.trim().charAt(0) + form.apellidos.trim().charAt(0)).toUpperCase() || '?';
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#0F172A' }}>
-      {/* ── Left panel: form ── */}
-      <div className="flex flex-col justify-center w-full lg:max-w-[520px] px-8 sm:px-14 py-12" style={{ background: '#0F172A' }}>
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-10">
-          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: '#4F46E5' }}>
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <span className="text-white text-base font-semibold">CrossFlow</span>
-        </div>
+    <AuthPageLayout
+      footer={
+        <>
+          ¿Ya tienes cuenta?{' '}
+          <Link to="/login" className="font-medium transition hover:opacity-80" style={{ color: '#6366F1' }}>
+            Iniciar sesión
+          </Link>
+        </>
+      }
+    >
+      <AuthBrand />
 
-        {/* Heading */}
-        <h1 className="text-3xl font-bold text-white mb-1.5">Crear tu cuenta</h1>
-        <p className="text-sm mb-7" style={{ color: '#94A3B8' }}>
-          Únete a CrossFlow y empieza a colaborar en segundos.
-        </p>
+      <h1 className="text-2xl font-bold text-white mb-1">Crear tu cuenta</h1>
+      <p className="text-[13px] mb-3" style={{ color: '#94A3B8' }}>
+        Únete a CrossFlow y empieza a colaborar en segundos.
+      </p>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-3 mb-8">
+      {/* Step indicator */}
+      <div className="flex items-center gap-3 mb-3">
           <div className="flex items-center gap-2">
             <span
               className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
@@ -192,49 +190,14 @@ export default function RegisterPage() {
 
         {/* ── STEP 1: Perfil ── */}
         {step === 1 && (
-          <form onSubmit={handleContinue} noValidate className="space-y-5">
-            {/* Avatar */}
-            <div className="flex items-center gap-4">
-              <div className="relative flex-none">
-                <div
-                  className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-lg font-bold"
-                  style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: '#fff' }}
-                >
-                  {avatarIsValidUrl ? (
-                    <img src={form.avatar.trim()} alt="avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    initials !== '?' ? initials : (
-                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                      </svg>
-                    )
-                  )}
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium mb-0.5" style={{ color: '#CBD5E1' }}>Foto de perfil</p>
-                <p className="text-xs mb-2" style={{ color: '#475569' }}>URL de imagen · opcional</p>
-                <input
-                  type="url"
-                  value={form.avatar}
-                  onChange={set('avatar')}
-                  placeholder="https://ejemplo.com/foto.png"
-                  autoComplete="off"
-                  disabled={loading}
-                  className="w-full px-3 py-2 rounded-lg text-xs transition disabled:opacity-50 focus:outline-none"
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${avatarIsValidUrl || !form.avatar.trim() ? 'rgba(255,255,255,0.12)' : '#F87171'}`,
-                    color: '#F8FAFC',
-                  }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = '#6366F1'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)'; }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.borderColor = avatarIsValidUrl || !form.avatar.trim() ? 'rgba(255,255,255,0.12)' : '#F87171';
-                  }}
-                />
-              </div>
-            </div>
+          <form onSubmit={handleContinue} noValidate className="space-y-3">
+            <AvatarPickerField
+              value={form.avatar}
+              onChange={(url) => setForm(prev => ({ ...prev, avatar: url }))}
+              initials={initials}
+              disabled={loading}
+              compact
+            />
 
             {/* Nombres + Apellidos */}
             <div className="grid grid-cols-2 gap-3">
@@ -274,7 +237,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={!canProceed || loading}
-              className="w-full py-3 rounded-xl text-sm font-semibold text-white transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
+              className="w-full mt-5 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(180deg, #6366F1 0%, #4F46E5 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}
             >
               Continuar →
@@ -284,13 +247,12 @@ export default function RegisterPage() {
 
         {/* ── STEP 2: Credenciales ── */}
         {step === 2 && (
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
-            {/* Google */}
+          <form onSubmit={handleSubmit} noValidate className="space-y-3">
             <button
               type="button"
               onClick={handleGoogle}
               disabled={loading || googleLoading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#F8FAFC' }}
             >
               {googleLoading ? (
@@ -332,10 +294,10 @@ export default function RegisterPage() {
             />
 
             {/* Password */}
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>Contraseña</label>
+            <div className="cf-field">
+              <label className="block text-[13px] font-medium mb-1" style={{ color: '#CBD5E1' }}>Contraseña</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }}>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#475569' }} aria-hidden="true">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
@@ -348,7 +310,7 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   required
                   disabled={loading}
-                  className="w-full pl-10 pr-11 py-3 rounded-xl text-sm transition disabled:opacity-50 focus:outline-none"
+                  className="cf-auth-input w-full pl-10 pr-11 py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     background: 'rgba(255,255,255,0.06)',
                     border: `1px solid ${
@@ -360,13 +322,6 @@ export default function RegisterPage() {
                     }`,
                     color: '#F8FAFC',
                   }}
-                  onFocus={(e) => {
-                    if (form.password.length === 0) {
-                      e.currentTarget.style.borderColor = '#6366F1';
-                      e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)';
-                    }
-                  }}
-                  onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
                 />
                 <button
                   type="button"
@@ -388,8 +343,8 @@ export default function RegisterPage() {
                 </button>
               </div>
               {form.password.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  <li className="flex items-center gap-1.5 text-xs" style={{ color: form.password.length >= 8 ? '#4ADE80' : '#F87171' }}>
+                <ul className="mt-1.5 space-y-0.5">
+                  <li className="flex items-center gap-1.5 text-[11px]" style={{ color: form.password.length >= 8 ? '#4ADE80' : '#F87171' }}>
                     {form.password.length >= 8 ? (
                       <svg className="w-3.5 h-3.5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     ) : (
@@ -397,7 +352,7 @@ export default function RegisterPage() {
                     )}
                     Mínimo 8 caracteres
                   </li>
-                  <li className="flex items-center gap-1.5 text-xs" style={{ color: PASSWORD_RE.test(form.password) ? '#4ADE80' : '#F87171' }}>
+                  <li className="flex items-center gap-1.5 text-[11px]" style={{ color: PASSWORD_RE.test(form.password) ? '#4ADE80' : '#F87171' }}>
                     {PASSWORD_RE.test(form.password) ? (
                       <svg className="w-3.5 h-3.5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     ) : (
@@ -413,7 +368,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full py-3 rounded-xl text-sm font-semibold text-white transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
+              className="w-full mt-5 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(180deg, #6366F1 0%, #4F46E5 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}
             >
               {loading && (
@@ -429,48 +384,14 @@ export default function RegisterPage() {
               type="button"
               onClick={() => setStep(1)}
               disabled={loading}
-              className="w-full py-2 text-sm transition disabled:opacity-50"
+              className="w-full py-1.5 text-[13px] transition disabled:opacity-50"
               style={{ color: '#64748B' }}
             >
               ← Volver al perfil
             </button>
           </form>
         )}
-
-        <p className="mt-7 text-sm text-center" style={{ color: '#64748B' }}>
-          ¿Ya tienes cuenta?{' '}
-          <Link to="/login" className="font-medium transition hover:opacity-80" style={{ color: '#6366F1' }}>
-            Iniciar sesión
-          </Link>
-        </p>
-      </div>
-
-      {/* ── Right panel: marketing (same as login) ── */}
-      <div
-        className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #1E293B 100%)' }}
-      >
-        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(99,102,241,0.08)' }} />
-        <div className="absolute -bottom-40 left-0 w-[400px] h-[400px] rounded-full blur-3xl pointer-events-none" style={{ background: 'rgba(59,130,246,0.06)' }} />
-
-        <div className="relative z-10 max-w-lg">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-8 text-xs font-medium" style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#A5B4FC' }}>
-            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            Estudio colaborativo en tiempo real
-          </div>
-
-          <h2 className="text-5xl font-bold leading-tight mb-5 text-white">
-            Salas accesibles para aprender, crear y avanzar juntos.
-          </h2>
-          <p className="text-base leading-relaxed" style={{ color: '#64748B' }}>
-            Video HD, chat instantáneo, pizarra compartida y herramientas de accesibilidad WCAG 2.2 integradas en cada sesión.
-          </p>
-        </div>
-      </div>
-    </div>
+    </AuthPageLayout>
   );
 }
 
@@ -495,11 +416,11 @@ function DarkInput({
   icon?: React.ReactNode;
 }) {
   return (
-    <div>
-      <label className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>{label}</label>
+    <div className="cf-field">
+      <label className="block text-[13px] font-medium mb-1" style={{ color: '#CBD5E1' }}>{label}</label>
       <div className="relative">
         {icon && (
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#475569' }}>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#475569' }} aria-hidden="true">
             {icon}
           </span>
         )}
@@ -511,16 +432,13 @@ function DarkInput({
           autoComplete={autoComplete}
           required
           disabled={disabled}
-          className="w-full py-3 rounded-xl text-sm transition disabled:opacity-50 focus:outline-none"
+          className="cf-auth-input w-full py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             paddingLeft: icon ? '2.5rem' : '1rem',
             paddingRight: '1rem',
             background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.12)',
             color: '#F8FAFC',
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = '#6366F1'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.boxShadow = 'none'; }}
         />
       </div>
     </div>

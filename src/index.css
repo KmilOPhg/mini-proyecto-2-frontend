@@ -61,12 +61,47 @@ body {
   outline-offset: 2px;
 }
 
+/* En campos de formulario el offset externo se recorta en layouts compactos */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 0;
+}
+
+.cf-field {
+  padding: 3px;
+  margin: -3px;
+}
+
+input.cf-auth-input,
+textarea.cf-auth-input,
+select.cf-auth-input {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input.cf-auth-input:focus-visible,
+textarea.cf-auth-input:focus-visible,
+select.cf-auth-input:focus-visible {
+  outline: 2px solid #818CF8;
+  outline-offset: 0;
+  border-color: #818CF8;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+}
+
 /* Modo lector de pantalla — foco más marcado (2.4.13 nivel AAA) */
 html.cf-sr-enhanced *:focus-visible {
   outline: 3px solid #818CF8 !important;
   outline-offset: 3px !important;
   border-radius: 4px;
   box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.35);
+}
+
+html.cf-sr-enhanced input:focus-visible,
+html.cf-sr-enhanced textarea:focus-visible,
+html.cf-sr-enhanced select:focus-visible {
+  outline-offset: 0 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.35) !important;
 }
 
 /* 1.4.3 / 1.4.6 — alto contraste opcional */

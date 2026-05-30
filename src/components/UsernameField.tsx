@@ -120,8 +120,8 @@ export default function UsernameField({
 
   if (dark) {
     return (
-      <div>
-        <label className="block text-sm font-medium mb-1.5" style={{ color: '#CBD5E1' }}>
+      <div className="cf-field">
+        <label className="block text-[13px] font-medium mb-1" style={{ color: '#CBD5E1' }}>
           {label}
         </label>
         <div className="relative">
@@ -135,24 +135,11 @@ export default function UsernameField({
             disabled={disabled}
             placeholder="tu_usuario"
             autoComplete="username"
-            className="w-full pl-8 pr-10 py-3 rounded-xl text-sm transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+            className="cf-auth-input w-full pl-8 pr-10 py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'rgba(255,255,255,0.06)',
-              border: '1px solid',
               color: '#F8FAFC',
               ...borderStyle,
-            }}
-            onFocus={(e) => {
-              if (status !== 'available' && !isError) {
-                e.currentTarget.style.borderColor = '#6366F1';
-                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.25)';
-              }
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.boxShadow = 'none';
-              if (status !== 'available' && !isError) {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
-              }
             }}
           />
           {status === 'checking' && (
