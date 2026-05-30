@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import { joinSala, joinSalaPorCodigo } from '../services/api';
 import { isCodigoInvitacion, parseSalaJoinInput } from '../utils/sala';
 import { useAuthStore } from '../store/authStore';
-import { COMING_SOON_LABEL } from './ComingSoonButton';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 interface Props {
@@ -25,7 +24,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
   const dialogRef = useModalA11y(open, { onClose });
   const [salaId, setSalaId] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [_joining, setJoining] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -107,17 +106,18 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
               type="text"
               value={salaId}
               onChange={e => { setSalaId(e.target.value); setError(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') void handleJoin(); }}
               placeholder="Ej. CRF-7K3-92Q"
-              disabled
-              title={COMING_SOON_LABEL}
-              aria-label={`ID de la sala — ${COMING_SOON_LABEL}`}
-              className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none font-mono"
+              disabled={joining}
+              autoFocus
+              aria-label="ID de la sala"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'join-room-error' : undefined}
+              className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none font-mono disabled:opacity-50"
               style={{
                 background: '#0F172A',
                 color: '#F8FAFC',
-                border: '1px solid rgba(148,163,184,0.18)',
-                opacity: 0.45,
-                cursor: 'not-allowed',
+                border: `1px solid ${error ? 'rgba(248,113,113,0.5)' : 'rgba(148,163,184,0.18)'}`,
               }}
             />
             {error && (
@@ -131,26 +131,27 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
 
         <div className="px-7 pb-7 flex justify-end gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-[10px] text-[13.5px] font-medium cursor-pointer"
+            disabled={joining}
+            className="px-5 py-2.5 rounded-[10px] text-[13.5px] font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'rgba(148,163,184,0.08)', color: '#94A3B8', border: '1px solid rgba(148,163,184,0.16)' }}
           >
             Cancelar
           </button>
           <button
-            onClick={handleJoin}
-            disabled
-            title={COMING_SOON_LABEL}
-            aria-label={`Unirse — ${COMING_SOON_LABEL}`}
-            className="px-5 py-2.5 rounded-[10px] text-[13.5px] font-semibold text-white"
+            type="button"
+            onClick={() => void handleJoin()}
+            disabled={joining || !salaId.trim()}
+            aria-label="Unirse a la sala"
+            className="px-5 py-2.5 rounded-[10px] text-[13.5px] font-semibold text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: 'rgba(99,102,241,0.35)',
+              background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)',
               border: '1px solid rgba(255,255,255,0.06)',
-              opacity: 0.45,
-              cursor: 'not-allowed',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.16) inset, 0 4px 14px rgba(99,102,241,0.32)',
             }}
           >
-            Unirse
+            {joining ? 'Uniéndose…' : 'Unirse'}
           </button>
         </div>
       </div>

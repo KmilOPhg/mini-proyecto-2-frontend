@@ -1,5 +1,4 @@
 import type { StudentUser } from '../services/api';
-import { COMING_SOON_LABEL } from './ComingSoonButton';
 
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -29,7 +28,7 @@ interface HeaderProps {
   onJoinById: () => void;
 }
 
-export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCreateRoom, onJoinById: _onJoinById }: HeaderProps) {
+export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCreateRoom, onJoinById }: HeaderProps) {
   const n = user?.nombres?.trim() ?? '';
   const a = user?.apellidos?.trim() ?? '';
   const initials = ((n[0] ?? '') + (a[0] ?? '')).toUpperCase() || 'CF';
@@ -80,16 +79,13 @@ export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCrea
       <div className="flex items-center gap-2">
         <button
           type="button"
-          disabled
-          title={COMING_SOON_LABEL}
-          aria-label={`Unirse por ID — ${COMING_SOON_LABEL}`}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] text-sm font-medium transition-colors"
+          onClick={onJoinById}
+          aria-label="Unirse por ID"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] text-sm font-medium transition-colors cursor-pointer hover:opacity-90"
           style={{
             background: 'rgba(148,163,184,0.06)',
             border: '1px solid rgba(148,163,184,0.14)',
             color: '#F8FAFC',
-            opacity: 0.45,
-            cursor: 'not-allowed',
           }}
         >
           <HandIcon /> <span>Unirse por ID</span>
