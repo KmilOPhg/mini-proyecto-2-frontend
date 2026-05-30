@@ -21,11 +21,14 @@ const HandIcon = () => (
 interface HeaderProps {
   q: string;
   setQ: (v: string) => void;
-  user: Pick<StudentUser, 'nombres' | 'avatar'> | null;
+  user: Pick<StudentUser, 'nombres' | 'apellidos' | 'avatar'> | null;
+  onOpenProfile: () => void;
 }
 
-export default function Header({ q, setQ, user }: HeaderProps) {
-  const initials = user ? user.nombres.slice(0, 2).toUpperCase() : 'CF';
+export default function Header({ q, setQ, user, onOpenProfile }: HeaderProps) {
+  const n = user?.nombres?.trim() ?? '';
+  const a = user?.apellidos?.trim() ?? '';
+  const initials = ((n[0] ?? '') + (a[0] ?? '')).toUpperCase() || 'CF';
 
   return (
     <header
@@ -40,7 +43,7 @@ export default function Header({ q, setQ, user }: HeaderProps) {
     >
       <div>
         <h1 className="m-0 text-xl font-semibold" style={{ letterSpacing: '-0.015em', color: '#F8FAFC' }}>
-          Hola, {user?.nombres?.split(' ')[0] ?? 'Estudiante'} 👋
+          Hola, {user?.nombres?.split(' ')[0] ?? user?.apellidos?.split(' ')[0] ?? 'Estudiante'} 👋
         </h1>
         <p className="mt-0.5 text-[13px]" style={{ color: '#94A3B8' }}>
           Tienes <strong style={{ color: '#F8FAFC', fontWeight: 600 }}>3 sesiones</strong> activas.
@@ -89,6 +92,7 @@ export default function Header({ q, setQ, user }: HeaderProps) {
 
         <button
           aria-label="Perfil"
+          onClick={onOpenProfile}
           className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white text-xs font-semibold cursor-pointer"
           style={{
             background: 'linear-gradient(135deg, #6366F1, #38BDF8)',

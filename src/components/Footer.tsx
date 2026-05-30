@@ -7,19 +7,21 @@ const LogoutIcon = () => (
 );
 
 interface FooterProps {
-  user: Pick<StudentUser, 'nombres' | 'avatar'> | null;
-  setActiveTab: (tab: string) => void;
+  user: Pick<StudentUser, 'nombres' | 'apellidos' | 'avatar'> | null;
+  onOpenProfile: () => void;
   onLogout: () => void;
 }
 
-export default function Footer({ user, setActiveTab, onLogout }: FooterProps) {
-  const initials = user ? user.nombres.slice(0, 2).toUpperCase() : 'CF';
+export default function Footer({ user, onOpenProfile, onLogout }: FooterProps) {
+  const n = user?.nombres?.trim() ?? '';
+  const a = user?.apellidos?.trim() ?? '';
+  const initials = ((n[0] ?? '') + (a[0] ?? '')).toUpperCase() || 'CF';
 
   return (
     <div className="flex gap-2 items-stretch pt-3" style={{ borderTop: '1px solid rgba(148,163,184,0.14)' }}>
       <button
         aria-label="Abrir perfil"
-        onClick={() => setActiveTab('profile')}
+        onClick={onOpenProfile}
         className="flex-1 min-w-0 grid items-center gap-2.5 px-2.5 py-2 rounded-[12px] cursor-pointer text-left transition-colors"
         style={{
           gridTemplateColumns: 'auto 1fr',
@@ -37,7 +39,7 @@ export default function Footer({ user, setActiveTab, onLogout }: FooterProps) {
           </span>
         )}
         <span className="flex flex-col min-w-0">
-          <span className="text-[13px] font-medium truncate">{user?.nombres ?? 'Estudiante'}</span>
+          <span className="text-[13px] font-medium truncate">{user?.nombres ?? user?.apellidos ?? 'Estudiante'}</span>
           <span className="text-[11px] flex items-center gap-1.5" style={{ color: '#64748B' }}>
             <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#4ADE80', boxShadow: '0 0 0 2px rgba(74,222,128,0.2)' }} />
             En línea
