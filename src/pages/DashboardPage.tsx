@@ -49,6 +49,11 @@ const UserIcon = ({ size = 18 }: { size?: number }) => (
     <circle cx="12" cy="8" r="4" /><path d="M4 20c1-4 4.5-6 8-6s7 2 8 6" />
   </svg>
 );
+const LogoutIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2M9 12h12M18 9l3 3l-3 3" />
+  </svg>
+);
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout, roomCount }: {
   activeTab: string;
@@ -125,16 +130,19 @@ function MobileBottomNav({
   activeTab,
   setActiveTab,
   onOpenProfile,
+  onLogout,
   roomCount,
 }: {
   activeTab: string;
   setActiveTab: (t: string) => void;
   onOpenProfile: () => void;
+  onLogout: () => void;
   roomCount: number;
 }) {
   const items = [
     { key: 'rooms', label: 'Salas', icon: <RoomsIcon size={20} />, badge: roomCount > 0 ? roomCount : null, action: () => setActiveTab('rooms') },
     { key: 'profile', label: 'Perfil', icon: <UserIcon size={20} />, badge: null, action: onOpenProfile },
+    { key: 'logout', label: 'Salir', icon: <LogoutIcon size={20} />, badge: null, action: onLogout },
   ] as const;
 
   return (
@@ -148,15 +156,19 @@ function MobileBottomNav({
       }}
     >
       {items.map(({ key, label, icon, badge, action }) => {
-        const active = activeTab === key;
+        const active = key !== 'logout' && activeTab === key;
         return (
           <button
             key={key}
             type="button"
             onClick={action}
             aria-current={active ? 'page' : undefined}
+            aria-label={key === 'logout' ? 'Cerrar sesión' : label}
             className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 min-h-[56px] border-0 cursor-pointer transition-colors"
-            style={{ color: active ? '#818CF8' : '#64748B', background: 'transparent' }}
+            style={{
+              color: key === 'logout' ? '#94A3B8' : active ? '#818CF8' : '#64748B',
+              background: 'transparent',
+            }}
           >
             <span className="relative">
               {icon}
@@ -457,7 +469,6 @@ export default function DashboardPage() {
             onJoinById={() => setShowJoinRoomModal(true)}
           />
 
-          {/* Body */}
           <div className="p-4 sm:p-6 lg:p-7 flex flex-col gap-6 sm:gap-8 w-full max-w-[1480px] mx-auto">
             <section aria-labelledby="rooms-h">
               {/* Section header */}
@@ -553,6 +564,7 @@ export default function DashboardPage() {
             setActiveTab('profile');
             setShowProfileModal(true);
           }}
+          onLogout={handleLogout}
           roomCount={salas.length}
         />
       </div>
