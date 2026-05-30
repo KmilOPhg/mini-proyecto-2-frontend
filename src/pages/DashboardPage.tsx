@@ -147,7 +147,7 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
             <LiveChip status={r.status} time={r.time} />
           </div>
           <p className="mt-0.5 text-[12.5px]" style={{ color: '#64748B' }}>
-            {r.subject} · {r.host} · {r.members}/{r.max} miembros
+            {r.subject} · {r.host} · {r.onlineCount} en la sala
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -201,21 +201,23 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
       {/* Footer */}
       <footer className="grid items-center gap-3 px-[18px] pt-3 pb-4" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
         <div className="flex">
-          {Array.from({ length: Math.min(r.members, 3) }).map((_, i) => (
+          {Array.from({ length: Math.min(r.onlineCount, 3) }).map((_, i) => (
             <span key={i} className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold text-white border-2" style={{ background: '#6366F1', borderColor: '#1E293B', marginLeft: i > 0 ? -8 : 0 }}>
               {getInitials(r.host)}
             </span>
           ))}
-          {r.members > 3 && (
+          {r.onlineCount > 3 && (
             <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold border-2" style={{ background: 'rgba(148,163,184,0.15)', color: '#94A3B8', borderColor: '#1E293B', marginLeft: -8 }}>
-              +{r.members - 3}
+              +{r.onlineCount - 3}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5 text-[12px]" style={{ color: '#64748B' }}>
-          <span>{r.host}</span>
-          <span aria-hidden="true">·</span>
-          <span>{r.members}/{r.max}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span>{r.onlineCount} en la sala</span>
         </div>
         <button
           onClick={() => onEnter(r.id)}
@@ -305,20 +307,28 @@ export default function DashboardPage() {
     [salas, hostName],
   );
 
-  const fetchSalas = useCallback(async () => {
+  const fetchSalas = useCallback(async (silent = false) => {
     if (!jwtToken) return;
-    setLoadingRooms(true);
+    if (!silent) setLoadingRooms(true);
     try {
       const data = await listMisSalas(jwtToken);
       setSalas(data.items);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al cargar las salas.');
+      if (!silent) {
+        toast.error(err instanceof Error ? err.message : 'Error al cargar las salas.');
+      }
     } finally {
-      setLoadingRooms(false);
+      if (!silent) setLoadingRooms(false);
     }
   }, [jwtToken]);
 
-  useEffect(() => { fetchSalas(); }, [fetchSalas]);
+  useEffect(() => {
+    fetchSalas();
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchSalas(true);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [fetchSalas]);
 
   const filtered = useMemo(() =>
     rooms.filter(r =>

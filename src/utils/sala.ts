@@ -59,7 +59,8 @@ export type RoomCardData = {
   title: string;
   subject: string;
   host: string;
-  members: number;
+  onlineCount: number;
+  totalMembers: number;
   max: number;
   status: 'live' | 'scheduled';
   color: RoomColor;
@@ -74,18 +75,23 @@ export function salaToRoomCard(sala: SalaPublica, hostName: string): RoomCardDat
   const time = created
     ? created.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
     : '—';
+  const onlineCount = sala.usuariosEnLinea ?? 0;
+  const totalMembers = sala.participantes.length;
 
   return {
     id: sala.id,
     title: sala.nombre,
     subject,
     host: hostName,
-    members: sala.participantes.length,
+    onlineCount,
+    totalMembers,
     max: 12,
-    status: 'live',
+    status: onlineCount > 0 ? 'live' : 'scheduled',
     color: colorFromId(sala.id),
     time,
-    desc: `Sala colaborativa · ${sala.participantes.length} participante${sala.participantes.length === 1 ? '' : 's'}.`,
+    desc: onlineCount > 0
+      ? `${onlineCount} usuario${onlineCount === 1 ? '' : 's'} en la sala ahora.`
+      : 'Nadie conectado en este momento.',
     code: sala.codigoInvitacion ?? formatSalaCode(sala.id),
   };
 }
