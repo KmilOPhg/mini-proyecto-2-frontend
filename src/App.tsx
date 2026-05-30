@@ -2,6 +2,10 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useAuthStore } from './store/authStore';
+import { initA11y } from './utils/a11y';
+
+// Apply stored accessibility settings before first render
+initA11y();
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UsernameSetupPage from './pages/UsernameSetupPage';
@@ -63,6 +67,7 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <a href="#main" className="cf-skip-link">Saltar al contenido</a>
       <Toaster
         position="bottom-right"
         toastOptions={{

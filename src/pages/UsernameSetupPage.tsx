@@ -67,12 +67,12 @@ export default function UsernameSetupPage() {
             {user.avatar ? (
               <img
                 src={user.avatar}
-                alt={user.nombres}
+                alt={user.nombres ?? ''}
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-100"
               />
             ) : (
               <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
-                {user.nombres.charAt(0).toUpperCase()}
+                {(user.nombres ?? user.apellidos ?? '?').charAt(0).toUpperCase()}
               </div>
             )}
             <div className="min-w-0">

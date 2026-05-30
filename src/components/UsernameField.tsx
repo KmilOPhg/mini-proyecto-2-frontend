@@ -10,6 +10,7 @@ type Props = {
   disabled?: boolean;
   label?: string;
   dark?: boolean;
+  excludeUsername?: string; // skip availability check when value matches (user's own username)
 };
 
 const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
@@ -21,6 +22,7 @@ export default function UsernameField({
   disabled,
   label = 'Nombre de usuario',
   dark = false,
+  excludeUsername,
 }: Props) {
   const [status, setStatus] = useState<AvailabilityStatus>('idle');
   const [normalized, setNormalized] = useState('');
@@ -32,6 +34,13 @@ export default function UsernameField({
     if (!trimmed) {
       setStatus('idle');
       onStatusChange?.(null);
+      return;
+    }
+
+    // Own username — no need to check availability
+    if (excludeUsername && trimmed === excludeUsername.trim().toLowerCase()) {
+      setStatus('idle');
+      onStatusChange?.(true);
       return;
     }
 
@@ -64,7 +73,7 @@ export default function UsernameField({
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, excludeUsername]);
 
   const isError = status === 'taken' || status === 'invalid' || status === 'error';
 

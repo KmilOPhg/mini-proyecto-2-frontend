@@ -16,3 +16,39 @@ body {
 #root {
   min-height: 100svh;
 }
+
+/* ── Accesibilidad ─────────────────────────────────────────────────────────── */
+
+/* Alto contraste WCAG AAA — aumenta el contraste global vía filter */
+html.cf-high-contrast body {
+  filter: contrast(1.25) brightness(1.05);
+}
+
+/* Lector de pantalla mejorado — indicadores de foco visibles y nítidos */
+html.cf-sr-enhanced *:focus-visible {
+  outline: 3px solid #818CF8 !important;
+  outline-offset: 3px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.35) !important;
+}
+
+/* Skip-to-content link (visible en modo lector de pantalla) */
+html.cf-sr-enhanced .cf-skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: #6366F1;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.2s;
+}
+html.cf-sr-enhanced .cf-skip-link:focus {
+  transform: translateY(0);
+}
+

@@ -24,8 +24,8 @@ async function request<T>(
 
 export type StudentUser = {
   id: string;
-  nombres: string;
-  apellidos: string;
+  nombres: string | null;
+  apellidos: string | null;
   username: string | null;
   avatar: string | null;
   email: string;
@@ -72,5 +72,48 @@ export function completeGoogleUsername(idToken: string, username: string) {
     method: 'POST',
     headers: { Authorization: `Bearer ${idToken}` },
     body: JSON.stringify({ username }),
+  });
+}
+
+export type ProfileUpdateInput = Partial<{
+  nombres: string;
+  apellidos: string;
+  username: string;
+  email: string;
+  avatar: string | null;
+}>;
+
+export function updateMyProfile(token: string, input: ProfileUpdateInput) {
+  return request<StudentUser>('/auth/users/me', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteMyAccount(token: string) {
+  return request<null>('/auth/users/me', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ── Salas ──────────────────────────────────────────────────────────────────────
+
+export type SalaPublica = {
+  id: string;
+  nombre: string;
+  creadorUid: string;
+  participantes: string[];
+  esCreador: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export function createSala(token: string, nombre: string) {
+  return request<SalaPublica>('/salas', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ nombre }),
   });
 }

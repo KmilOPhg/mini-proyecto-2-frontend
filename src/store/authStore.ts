@@ -13,6 +13,7 @@ type AuthState = {
   isLoading: boolean;
   setSession: (token: string, user: StudentUser) => void;
   markNeedsUsername: (user: StudentUser) => void;
+  updateUser: (user: StudentUser) => void;
   logout: () => Promise<void>;
   init: () => () => void;
 };
@@ -31,6 +32,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   markNeedsUsername(userData) {
     set({ user: userData, needsUsername: true, jwtToken: null });
+  },
+
+  updateUser(userData) {
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    set({ user: userData });
   },
 
   async logout() {
