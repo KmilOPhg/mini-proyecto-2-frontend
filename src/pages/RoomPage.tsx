@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import { getSala, joinSala, getMensajes } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import {
-  getSocket, disconnectSocket, joinSalaSocket, leaveSalaSocket,
-  sendMensajeSocket, onMensajeNuevo,
+  connectSocket, disconnectSocket, joinSalaSocket, leaveSalaSocket,
+  sendMensajeSocket, onMensajeNuevo, appendMensajeLocal,
 } from '../lib/socket';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -136,7 +136,9 @@ export default function RoomPage() {
         if (cancelled) return;
         setMensajes(history);
 
-        getSocket(jwtToken!);
+        await connectSocket(jwtToken!);
+        if (cancelled) return;
+
         const joinRes = await joinSalaSocket(id!);
         if (!joinRes.ok) throw new Error(joinRes.error);
         joinedRef.current = true;
@@ -160,11 +162,10 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (!id) return;
-    const unsub = onMensajeNuevo(msg => {
+    return onMensajeNuevo(msg => {
       if (msg.salaId !== id) return;
-      setMensajes(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+      setMensajes(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
     });
-    return unsub;
   }, [id]);
 
   async function handleSend(e?: React.FormEvent) {
@@ -185,6 +186,8 @@ export default function RoomPage() {
       if (!res.ok) {
         setDraft(texto);
         toast.error(res.error);
+      } else {
+        appendMensajeLocal(res.mensaje);
       }
     } finally {
       setSending(false);
