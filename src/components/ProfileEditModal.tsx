@@ -8,26 +8,12 @@ import { updateMyProfile, deleteMyAccount } from '../services/api';
 import type { ProfileUpdateInput } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import UsernameField from './UsernameField';
+import AvatarPickerField from './AvatarPickerField';
 import { applyA11ySettings, LS_SR, LS_HC, LS_FS } from '../utils/a11y';
 import type { A11yFontSize } from '../utils/a11y';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 type ModalTab = 'perfil' | 'cuenta' | 'accesibilidad' | 'peligro';
-
-const PRESET_AVATARS = [
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Luna',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Lily',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Max',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Salem',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Pepper',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Gizmo',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Milo',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Coco',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Ruby',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Kira',
-  'https://api.dicebear.com/7.x/bottts/svg?seed=Nova',
-] as const;
 
 interface Props {
   open: boolean;
@@ -122,15 +108,6 @@ function UserIcon() {
     </svg>
   );
 }
-function CameraIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  );
-}
-
 function getInitials(nombres: string | null, apellidos: string | null) {
   const n = nombres?.trim() ?? '';
   const a = apellidos?.trim() ?? '';
@@ -163,9 +140,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
   const [apellidos, setApellidos] = useState('');
   const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [avatarAction, setAvatarAction] = useState<'none' | 'change' | 'remove'>('none');
-  const [avatarImgError, setAvatarImgError] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<'nombres' | 'apellidos', string>>>({});
 
@@ -195,8 +170,6 @@ export default function ProfileEditModal({ open, onClose }: Props) {
       setApellidos(user.apellidos ?? '');
       setUsername(user.username ?? '');
       setAvatarUrl(user.avatar ?? '');
-      setAvatarImgError(false);
-      setShowAvatarPicker(false);
       setAvatarAction('none');
       setConfirmDelete(false);
       setTab('perfil');
@@ -219,9 +192,19 @@ export default function ProfileEditModal({ open, onClose }: Props) {
     auth.currentUser?.providerData.some(p => p.providerId === 'google.com') ?? false;
 
   const currentAvatarPreview =
-    avatarAction === 'remove' ? null
-    : avatarAction === 'change' ? (avatarUrl.trim() || null)
-    : (u.avatar ?? null);
+    avatarAction === 'remove' ? ''
+    : avatarAction === 'change' ? avatarUrl.trim()
+    : (u.avatar ?? '');
+
+  function handleAvatarChange(url: string) {
+    if (!url) {
+      setAvatarAction('remove');
+      setAvatarUrl('');
+    } else {
+      setAvatarAction('change');
+      setAvatarUrl(url);
+    }
+  }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -421,7 +404,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
               onClick={onClose}
               className="p-1.5 rounded-lg cursor-pointer border-0 flex-none"
               style={{ background: 'rgba(148,163,184,0.08)', color: '#64748B' }}
-              aria-label="Cerrar"
+              aria-label="Cerrar Sesion"
             >
               <XIcon />
             </button>
@@ -460,118 +443,12 @@ export default function ProfileEditModal({ open, onClose }: Props) {
           {tab === 'perfil' && (
             <div className="flex flex-col gap-6">
               {/* Avatar */}
-              <div className="flex items-center gap-5">
-                {/* Avatar preview */}
-                <div className="relative flex-none">
-                  <div
-                    className="w-[72px] h-[72px] rounded-full overflow-hidden flex items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg, #6366F1 0%, #38BDF8 100%)' }}
-                  >
-                    {currentAvatarPreview && !avatarImgError ? (
-                      <img
-                        src={currentAvatarPreview}
-                        alt="Avatar"
-                        className="w-full h-full object-cover bg-[#1A2235]"
-                        onError={() => setAvatarImgError(true)}
-                      />
-                    ) : (
-                      <span className="text-xl font-bold text-white">{initials}</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setShowAvatarPicker(v => !v)}
-                    className="absolute -bottom-0.5 -right-0.5 w-[22px] h-[22px] rounded-full flex items-center justify-center cursor-pointer border-2"
-                    style={{ background: '#6366F1', borderColor: '#1A2235' }}
-                    aria-label="Elegir avatar"
-                  >
-                    <CameraIcon />
-                  </button>
-                </div>
-
-                {/* Avatar info + actions */}
-                <div className="flex-1 min-w-0">
-                  <p className="mb-1 text-[13.5px] font-medium" style={{ color: '#F8FAFC' }}>
-                    Foto de perfil
-                  </p>
-                  <p className="mb-3 text-[12px]" style={{ color: '#64748B' }}>
-                    Elige un avatar predeterminado
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowAvatarPicker(v => !v)}
-                      className="px-3 py-1.5 rounded-[8px] text-[13px] font-medium cursor-pointer"
-                      style={{ background: 'rgba(148,163,184,0.1)', color: '#F8FAFC', border: '1px solid rgba(148,163,184,0.2)' }}
-                    >
-                      {showAvatarPicker ? 'Cerrar' : 'Cambiar'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAvatarAction('remove');
-                        setAvatarUrl('');
-                        setAvatarImgError(false);
-                        setShowAvatarPicker(false);
-                      }}
-                      className="px-3 py-1.5 rounded-[8px] text-[13px] font-medium cursor-pointer"
-                      style={{ background: 'transparent', color: '#94A3B8', border: '1px solid rgba(148,163,184,0.14)' }}
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Avatar grid picker */}
-              {showAvatarPicker && (
-                <div
-                  className="rounded-xl p-3"
-                  style={{ background: '#0F172A', border: '1px solid rgba(148,163,184,0.12)' }}
-                >
-                  <p className="mb-2.5 text-[12px] font-medium" style={{ color: '#64748B' }}>
-                    Selecciona un avatar
-                  </p>
-                  <div className="grid grid-cols-6 gap-2">
-                    {PRESET_AVATARS.map((url) => {
-                      const isSelected = avatarUrl === url && avatarAction === 'change';
-                      return (
-                        <button
-                          key={url}
-                          onClick={() => {
-                            setAvatarUrl(url);
-                            setAvatarAction('change');
-                            setAvatarImgError(false);
-                          }}
-                          className="relative rounded-full cursor-pointer border-0 p-0 transition-transform hover:scale-110"
-                          style={{
-                            width: 52, height: 52,
-                            background: 'rgba(148,163,184,0.08)',
-                            outline: isSelected ? '2.5px solid #6366F1' : '2.5px solid transparent',
-                            outlineOffset: 2,
-                          }}
-                          aria-label={`Avatar ${url.split('seed=')[1]}`}
-                          aria-pressed={isSelected}
-                        >
-                          <img
-                            src={url}
-                            alt=""
-                            className="w-full h-full rounded-full object-cover"
-                            style={{ background: '#1A2235' }}
-                          />
-                          {isSelected && (
-                            <span
-                              className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
-                              style={{ background: '#6366F1', border: '2px solid #0F172A' }}
-                            >
-                              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <path d="M20 6L9 17l-5-5" />
-                              </svg>
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <AvatarPickerField
+                value={currentAvatarPreview}
+                onChange={handleAvatarChange}
+                initials={initials}
+                disabled={saving}
+              />
 
               <Divider />
 
@@ -666,7 +543,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
                       className="flex-none px-3.5 py-1.5 rounded-[9px] text-[13px] font-medium cursor-pointer"
                       style={{ background: 'rgba(148,163,184,0.1)', color: '#F8FAFC', border: '1px solid rgba(148,163,184,0.2)' }}
                     >
-                      {showPwForm ? 'Cancelar' : 'Cambiar'}
+                      {showPwForm ? 'Cancelar' : 'Cambiar Contraseña'}
                     </button>
                   )}
                   {isGoogleUser && (
