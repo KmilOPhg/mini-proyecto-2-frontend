@@ -97,3 +97,23 @@ export function deleteMyAccount(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+// ── Salas ──────────────────────────────────────────────────────────────────────
+
+export type SalaPublica = {
+  id: string;
+  nombre: string;
+  creadorUid: string;
+  participantes: string[];
+  esCreador: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export function createSala(token: string, nombre: string) {
+  return request<SalaPublica>('/salas', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ nombre }),
+  });
+}

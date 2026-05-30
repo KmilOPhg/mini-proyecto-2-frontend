@@ -23,9 +23,10 @@ interface HeaderProps {
   setQ: (v: string) => void;
   user: Pick<StudentUser, 'nombres' | 'apellidos' | 'avatar'> | null;
   onOpenProfile: () => void;
+  onCreateRoom: () => void;
 }
 
-export default function Header({ q, setQ, user, onOpenProfile }: HeaderProps) {
+export default function Header({ q, setQ, user, onOpenProfile, onCreateRoom }: HeaderProps) {
   const n = user?.nombres?.trim() ?? '';
   const a = user?.apellidos?.trim() ?? '';
   const initials = ((n[0] ?? '') + (a[0] ?? '')).toUpperCase() || 'CF';
@@ -79,6 +80,7 @@ export default function Header({ q, setQ, user, onOpenProfile }: HeaderProps) {
         </button>
         <button
           className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[9px] text-sm font-medium text-white cursor-pointer"
+          onClick={onCreateRoom}
           style={{
             background: 'linear-gradient(180deg, #6F73F4 0%, #5458E8 100%)',
             border: '1px solid rgba(255,255,255,0.06)',

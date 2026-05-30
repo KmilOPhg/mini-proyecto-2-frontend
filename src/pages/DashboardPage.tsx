@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProfileEditModal from '../components/ProfileEditModal';
+import CreateRoomModal from '../components/CreateRoomModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type RoomColor = 'indigo' | 'violet' | 'sky' | 'emerald' | 'amber' | 'rose';
@@ -241,9 +242,10 @@ function RoomCard({ r, view }: { r: Room; view: 'grid' | 'list' }) {
 }
 
 // ─── New Room Card ────────────────────────────────────────────────────────────
-function NewRoomCard({ view }: { view: 'grid' | 'list' }) {
+function NewRoomCard({ view, onClick }: { view: 'grid' | 'list'; onClick: () => void }) {
   return (
     <button
+      onClick={onClick}
       className="flex items-start justify-center gap-3 p-6 rounded-[16px] text-left cursor-pointer transition-colors group"
       style={{
         flexDirection: view === 'list' ? 'row' : 'column',
@@ -300,6 +302,7 @@ export default function DashboardPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState('rooms');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
 
   const filtered = useMemo(() =>
     ROOMS.filter(r =>
@@ -334,7 +337,7 @@ export default function DashboardPage() {
         />
 
         <main id="main" className="min-w-0 flex flex-col" style={{ color: '#F8FAFC' }}>
-          <Header q={q} setQ={setQ} user={user} onOpenProfile={() => setShowProfileModal(true)} />
+          <Header q={q} setQ={setQ} user={user} onOpenProfile={() => setShowProfileModal(true)} onCreateRoom={() => setShowCreateRoomModal(true)} />
 
           {/* Body */}
           <div className="p-7 flex flex-col gap-8 w-full max-w-[1480px] mx-auto">
@@ -408,7 +411,7 @@ export default function DashboardPage() {
                 style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' } : {}}
               >
                 {filtered.map(r => <RoomCard key={r.id} r={r} view={view} />)}
-                <NewRoomCard view={view} />
+                <NewRoomCard view={view} onClick={() => setShowCreateRoomModal(true)} />
               </div>
             </section>
           </div>
@@ -418,6 +421,11 @@ export default function DashboardPage() {
       <ProfileEditModal
         open={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+      />
+
+      <CreateRoomModal
+        open={showCreateRoomModal}
+        onClose={() => setShowCreateRoomModal(false)}
       />
     </>
   );
