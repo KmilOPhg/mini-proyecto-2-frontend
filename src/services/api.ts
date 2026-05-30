@@ -105,15 +105,68 @@ export type SalaPublica = {
   nombre: string;
   creadorUid: string;
   participantes: string[];
+  codigoInvitacion: string | null;
   esCreador: boolean;
   createdAt: string | null;
   updatedAt: string | null;
 };
 
-export function createSala(token: string, nombre: string) {
+export function createSala(token: string, nombre: string, codigoInvitacion?: string) {
   return request<SalaPublica>('/salas', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ nombre }),
+    body: JSON.stringify({
+      nombre,
+      ...(codigoInvitacion ? { codigoInvitacion } : {}),
+    }),
   });
+}
+
+export type ListarMisSalasData = {
+  items: SalaPublica[];
+  total: number;
+  vacio: boolean;
+};
+
+export function listMisSalas(token: string) {
+  return request<ListarMisSalasData>('/salas/mias', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getSala(token: string, id: string) {
+  return request<SalaPublica>(`/salas/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function joinSala(token: string, id: string) {
+  return request<SalaPublica>(`/salas/${encodeURIComponent(id)}/unirse`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function joinSalaPorCodigo(token: string, codigo: string) {
+  return request<SalaPublica>('/salas/unirse-por-codigo', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ codigo: codigo.trim().toUpperCase() }),
+  });
+}
+
+export type MensajePublico = {
+  id: string;
+  salaId: string;
+  uid: string;
+  username: string;
+  texto: string;
+  createdAt: string | null;
+};
+
+export function getMensajes(token: string, salaId: string, limit = 50) {
+  return request<MensajePublico[]>(
+    `/salas/${encodeURIComponent(salaId)}/mensajes?limit=${limit}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
 }
