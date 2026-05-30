@@ -70,14 +70,14 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
       tabIndex={-1}
     >
       <div
-        className="w-full max-w-[440px] rounded-2xl flex flex-col"
+        className="w-full max-w-[440px] rounded-2xl flex flex-col max-h-[min(92vh,100svh)] overflow-y-auto"
         style={{
           background: '#1A2235',
           border: '1px solid rgba(148,163,184,0.12)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.55)',
         }}
       >
-        <div className="px-7 pt-7 pb-5">
+        <div className="px-5 sm:px-7 pt-5 sm:pt-7 pb-5">
           <div className="flex items-start justify-between mb-4">
             <div>
               <h2 id="join-room-title" className="m-0 text-[18px] font-bold" style={{ color: '#F8FAFC' }}>
@@ -129,7 +129,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
           </div>
         </div>
 
-        <div className="px-7 pb-7 flex justify-end gap-3">
+        <div className="px-5 sm:px-7 pb-5 sm:pb-7 flex flex-col-reverse sm:flex-row justify-end gap-3">
           <button
             type="button"
             onClick={onClose}

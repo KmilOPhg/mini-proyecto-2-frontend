@@ -69,6 +69,19 @@ export const useAuthStore = create<AuthState>((set) => ({
           return;
         }
 
+        // Evitar doble POST /auth/session si el login acaba de guardar el JWT en localStorage
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const jwtAfterLogin = localStorage.getItem(JWT_KEY);
+        const userAfterLogin = localStorage.getItem(USER_KEY);
+        if (jwtAfterLogin && userAfterLogin) {
+          set({
+            jwtToken: jwtAfterLogin,
+            user: JSON.parse(userAfterLogin) as StudentUser,
+            isLoading: false,
+          });
+          return;
+        }
+
         try {
           const idToken = await firebaseUser.getIdToken();
           const result = await createSession(idToken);

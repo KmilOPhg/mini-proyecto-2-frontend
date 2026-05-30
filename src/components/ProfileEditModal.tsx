@@ -377,16 +377,16 @@ export default function ProfileEditModal({ open, onClose }: Props) {
       tabIndex={-1}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-2xl rounded-2xl flex flex-col overflow-hidden mx-auto"
         style={{
           background: '#1A2235',
           border: '1px solid rgba(148,163,184,0.12)',
-          maxHeight: '90vh',
+          maxHeight: 'min(90vh, 100svh)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.55)',
         }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="px-7 pt-7 pb-0">
+        <div className="px-4 sm:px-7 pt-5 sm:pt-7 pb-0">
           <div className="flex items-start justify-between mb-5">
             <div>
               <h2
@@ -411,7 +411,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
           </div>
 
           {/* Tabs */}
-          <div className="flex" style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
+          <div className="flex overflow-x-auto" style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
             {TABS.map(t => {
               const active = tab === t.key;
               const color = t.danger
@@ -421,7 +421,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className="px-4 py-2.5 text-[13px] font-medium cursor-pointer border-0 transition-colors"
+                  className="px-3 sm:px-4 py-2.5 text-[13px] font-medium cursor-pointer border-0 transition-colors whitespace-nowrap shrink-0"
                   style={{
                     background: 'transparent',
                     color,
@@ -437,7 +437,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
         </div>
 
         {/* ── Content ────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-7 py-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-7 py-5 sm:py-6">
 
           {/* ──────── Perfil ──────── */}
           {tab === 'perfil' && (
@@ -453,7 +453,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
               <Divider />
 
               {/* Nombres / Apellidos */}
-              <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InputField label="Nombre completo" icon={<UserIcon />} error={fieldErrors.nombres}>
                   <input
                     type="text"
@@ -739,7 +739,7 @@ export default function ProfileEditModal({ open, onClose }: Props) {
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <div
-          className="px-7 py-4 flex justify-end gap-3 flex-none"
+          className="px-4 sm:px-7 py-4 flex flex-col-reverse sm:flex-row justify-end gap-3 flex-none"
           style={{ borderTop: '1px solid rgba(148,163,184,0.1)' }}
         >
           <button
@@ -791,7 +791,7 @@ function AccountRow({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-4">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6 py-4">
       <div className="min-w-0">
         <p className="m-0 text-[13.5px] font-semibold" style={{ color: '#F8FAFC' }}>{title}</p>
         <div className="mt-0.5 text-[12.5px] leading-relaxed" style={{ color: '#64748B' }}>{description}</div>

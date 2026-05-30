@@ -127,11 +127,7 @@ export type SalaPublica = {
 
 export type CreateSalaInput = {
   nombre: string;
-  codigoInvitacion?: string;
-  aforoMaximo: number;
-  privacidad: PrivacidadSala;
-  materia?: string;
-  descripcion?: string;
+  codigoInvitacion: string;
 };
 
 export function createSala(token: string, input: CreateSalaInput) {
@@ -140,11 +136,7 @@ export function createSala(token: string, input: CreateSalaInput) {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({
       nombre: input.nombre,
-      aforoMaximo: input.aforoMaximo,
-      privacidad: input.privacidad,
-      ...(input.codigoInvitacion ? { codigoInvitacion: input.codigoInvitacion } : {}),
-      ...(input.materia ? { materia: input.materia } : {}),
-      ...(input.descripcion ? { descripcion: input.descripcion } : {}),
+      codigoInvitacion: input.codigoInvitacion,
     }),
   });
 }

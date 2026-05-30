@@ -109,8 +109,18 @@ export function refreshPresenceSocket(): Promise<{ ok: true; nombre?: string } |
   });
 }
 
-export function leaveSalaSocket(salaId: string) {
-  socket?.emit('sala:salir', { salaId });
+export function leaveSalaSocket(salaId: string): Promise<void> {
+  return new Promise(resolve => {
+    if (!socket?.connected) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => resolve(), 4000);
+    socket.emit('sala:salir', { salaId }, () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 export function sendMensajeSocket(

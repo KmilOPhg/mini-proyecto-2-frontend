@@ -61,8 +61,8 @@ function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout, roomC
   return (
     <aside
       aria-label="Navegación principal"
-      style={{ background: '#111827', borderRight: '1px solid rgba(148,163,184,0.14)', width: 240 }}
-      className="sticky top-0 h-screen flex flex-col gap-3.5 px-3 py-[18px]"
+      style={{ background: '#111827', borderRight: '1px solid rgba(148,163,184,0.14)' }}
+      className="hidden lg:flex sticky top-0 h-screen w-[240px] flex-col gap-3.5 px-3 py-[18px] shrink-0"
     >
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-2 pb-3">
@@ -120,6 +120,63 @@ function Sidebar({ activeTab, setActiveTab, onOpenProfile, user, onLogout, roomC
   );
 }
 
+// ─── Mobile bottom nav ─────────────────────────────────────────────────────────
+function MobileBottomNav({
+  activeTab,
+  setActiveTab,
+  onOpenProfile,
+  roomCount,
+}: {
+  activeTab: string;
+  setActiveTab: (t: string) => void;
+  onOpenProfile: () => void;
+  roomCount: number;
+}) {
+  const items = [
+    { key: 'rooms', label: 'Salas', icon: <RoomsIcon size={20} />, badge: roomCount > 0 ? roomCount : null, action: () => setActiveTab('rooms') },
+    { key: 'profile', label: 'Perfil', icon: <UserIcon size={20} />, badge: null, action: onOpenProfile },
+  ] as const;
+
+  return (
+    <nav
+      aria-label="Navegación móvil"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-20 flex items-stretch pb-safe"
+      style={{
+        background: 'rgba(17,24,39,0.96)',
+        borderTop: '1px solid rgba(148,163,184,0.14)',
+        backdropFilter: 'blur(12px)',
+      }}
+    >
+      {items.map(({ key, label, icon, badge, action }) => {
+        const active = activeTab === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={action}
+            aria-current={active ? 'page' : undefined}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 min-h-[56px] border-0 cursor-pointer transition-colors"
+            style={{ color: active ? '#818CF8' : '#64748B', background: 'transparent' }}
+          >
+            <span className="relative">
+              {icon}
+              {badge != null && (
+                <span
+                  className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
+                  style={{ background: '#6366F1', color: '#fff' }}
+                >
+                  {badge}
+                </span>
+              )}
+            </span>
+            <span className="text-[11px] font-medium">{label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 
 
 const ENTER_ROOM_BTN_CLASS =
@@ -138,39 +195,43 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
   if (view === 'list') {
     return (
       <article
-        className="grid items-center gap-4 rounded-[12px] px-3.5 py-2.5 pl-2.5 transition-colors"
+        className="flex flex-col gap-3 sm:grid sm:items-center sm:gap-4 rounded-[12px] px-3.5 py-3 sm:py-2.5 pl-2.5 transition-colors"
         style={{
           gridTemplateColumns: '56px 1fr auto auto',
           background: '#1E293B',
           border: '1px solid rgba(148,163,184,0.14)',
         }}
       >
-        <div className="relative w-14 h-14 rounded-[10px] overflow-hidden flex-none" style={{ background: grad }}>
-          <span className="absolute right-2 bottom-1 text-[22px] font-bold" style={{ color: 'rgba(255,255,255,0.18)', letterSpacing: '-0.04em' }}>
-            {r.subject.slice(0, 2).toUpperCase()}
-          </span>
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <h3 className="m-0 text-sm font-medium truncate" style={{ color: '#F8FAFC' }}>{r.title}</h3>
-            <LiveChip status={r.status} time={r.time} />
+        <div className="flex items-center gap-3 sm:contents min-w-0">
+          <div className="relative w-14 h-14 rounded-[10px] overflow-hidden flex-none" style={{ background: grad }}>
+            <span className="absolute right-2 bottom-1 text-[22px] font-bold" style={{ color: 'rgba(255,255,255,0.18)', letterSpacing: '-0.04em' }}>
+              {r.subject.slice(0, 2).toUpperCase()}
+            </span>
           </div>
-          <p className="mt-0.5 text-[12.5px]" style={{ color: '#64748B' }}>
-            {r.subject} · {r.host} · {r.onlineCount} en la sala
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h3 className="m-0 text-sm font-medium truncate" style={{ color: '#F8FAFC' }}>{r.title}</h3>
+              <LiveChip status={r.status} time={r.time} />
+            </div>
+            <p className="mt-0.5 text-[12.5px] line-clamp-2 sm:truncate" style={{ color: '#64748B' }}>
+              {r.subject} · {r.host} · {r.onlineCount} en la sala
+            </p>
+          </div>
         </div>
-        <div className="flex gap-1.5">
-          <Tag label={r.code} />
+        <div className="flex items-center justify-between gap-2 sm:contents">
+          <div className="flex gap-1.5">
+            <Tag label={r.code} />
+          </div>
+          <button
+            type="button"
+            onClick={() => onEnter(r.id)}
+            aria-label={`Entrar a ${r.title}`}
+            className={`${ENTER_ROOM_BTN_CLASS} text-sm w-full sm:w-auto`}
+            style={ENTER_ROOM_BTN_STYLE}
+          >
+            Entrar
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onEnter(r.id)}
-          aria-label={`Entrar a ${r.title}`}
-          className={`${ENTER_ROOM_BTN_CLASS} text-sm`}
-          style={ENTER_ROOM_BTN_STYLE}
-        >
-          Entrar
-        </button>
       </article>
     );
   }
@@ -375,7 +436,7 @@ export default function DashboardPage() {
           50% { box-shadow: 0 0 0 5px rgba(248,113,113,0.05); }
         }
       `}</style>
-      <div className="grid min-h-screen" style={{ gridTemplateColumns: '240px 1fr', background: '#0F172A' }}>
+      <div className="flex flex-col lg:grid lg:grid-cols-[240px_1fr] min-h-svh" style={{ background: '#0F172A' }}>
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -385,7 +446,7 @@ export default function DashboardPage() {
           roomCount={salas.length}
         />
 
-        <main id="main" className="min-w-0 flex flex-col" style={{ color: '#F8FAFC' }}>
+        <main id="main" className="min-w-0 flex flex-col pb-[72px] lg:pb-0" style={{ color: '#F8FAFC' }}>
           <Header
             q={q}
             setQ={setQ}
@@ -397,11 +458,11 @@ export default function DashboardPage() {
           />
 
           {/* Body */}
-          <div className="p-7 flex flex-col gap-8 w-full max-w-[1480px] mx-auto">
+          <div className="p-4 sm:p-6 lg:p-7 flex flex-col gap-6 sm:gap-8 w-full max-w-[1480px] mx-auto">
             <section aria-labelledby="rooms-h">
               {/* Section header */}
-              <header className="flex items-end justify-between gap-4 mb-4">
-                <div>
+              <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-4">
+                <div className="min-w-0">
                   <h2 id="rooms-h" className="m-0 text-lg font-semibold" style={{ letterSpacing: '-0.01em', color: '#F8FAFC' }}>
                     Salas colaborativas
                   </h2>
@@ -410,7 +471,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-0.5 -mx-1 px-1">
                   {/* Filter tabs */}
                   <div
                     role="tablist"
@@ -475,8 +536,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div
-                  className={view === 'grid' ? 'grid gap-4' : 'flex flex-col gap-2'}
-                  style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' } : {}}
+                  className={view === 'grid' ? 'grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]' : 'flex flex-col gap-2'}
                 >
                   {filtered.map(r => <RoomCard key={r.id} r={r} view={view} onEnter={handleEnterRoom} />)}
                   <NewRoomCard view={view} onClick={() => setShowCreateRoomModal(true)} />
@@ -485,11 +545,24 @@ export default function DashboardPage() {
             </section>
           </div>
         </main>
+
+        <MobileBottomNav
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenProfile={() => {
+            setActiveTab('profile');
+            setShowProfileModal(true);
+          }}
+          roomCount={salas.length}
+        />
       </div>
 
       <ProfileEditModal
         open={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
+        onClose={() => {
+          setShowProfileModal(false);
+          setActiveTab('rooms');
+        }}
       />
 
       <CreateRoomModal

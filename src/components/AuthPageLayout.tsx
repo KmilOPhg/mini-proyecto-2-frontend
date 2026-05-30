@@ -20,13 +20,13 @@ export function AuthBrand() {
 
 export default function AuthPageLayout({ children, footer }: Props) {
   return (
-    <div className="h-svh flex overflow-hidden" style={{ background: '#0F172A' }}>
+    <div className="min-h-svh flex flex-col lg:flex-row overflow-x-hidden" style={{ background: '#0F172A' }}>
       <main
         id="main"
-        className="flex flex-col w-full lg:max-w-[480px] xl:max-w-[520px] h-svh min-h-0 shrink-0 px-5 sm:px-8 lg:px-10 py-4 sm:py-5"
+        className="flex flex-col w-full lg:max-w-[480px] xl:max-w-[520px] min-h-svh lg:h-svh shrink-0 px-5 sm:px-8 lg:px-10 py-4 sm:py-5 overflow-y-auto"
         style={{ background: '#0F172A' }}
       >
-        <div className="flex-1 min-h-0 flex flex-col justify-center">
+        <div className="flex-1 min-h-0 flex flex-col justify-center py-2 sm:py-0">
           <div className="w-full max-w-full">{children}</div>
         </div>
         {footer ? (
