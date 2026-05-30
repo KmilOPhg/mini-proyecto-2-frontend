@@ -84,6 +84,24 @@ export function joinSalaSocket(salaId: string): Promise<{ ok: true; salaId: stri
   });
 }
 
+export function refreshPresenceSocket(): Promise<{ ok: true; nombre?: string } | { ok: false; error: string }> {
+  return new Promise(resolve => {
+    if (!socket?.connected) {
+      resolve({ ok: false, error: 'Sin conexión al chat en tiempo real.' });
+      return;
+    }
+    const timer = setTimeout(
+      () => resolve({ ok: false, error: 'Tiempo de espera agotado al actualizar presencia.' }),
+      8000,
+    );
+    socket.emit('perfil:actualizar', (res: { ok: boolean; nombre?: string; error?: string }) => {
+      clearTimeout(timer);
+      if (res.ok) resolve({ ok: true, nombre: res.nombre });
+      else resolve({ ok: false, error: res.error ?? 'No se pudo actualizar la presencia.' });
+    });
+  });
+}
+
 export function leaveSalaSocket(salaId: string) {
   socket?.emit('sala:salir', { salaId });
 }

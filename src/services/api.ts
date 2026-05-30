@@ -84,7 +84,7 @@ export type ProfileUpdateInput = Partial<{
 }>;
 
 export function updateMyProfile(token: string, input: ProfileUpdateInput) {
-  return request<StudentUser>('/auth/users/me', {
+  return request<{ user: StudentUser; token: string }>('/auth/users/me', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(input),

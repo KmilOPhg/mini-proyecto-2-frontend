@@ -7,9 +7,11 @@ import {
   getActiveSocket,
   joinSalaSocket,
   leaveSalaSocket,
+  refreshPresenceSocket,
   sendMensajeSocket,
 } from '../lib/socket';
 import { useAuthStore } from '../store/authStore';
+import { getUserDisplayName } from '../utils/userDisplay';
 
 export type UsuarioEnLinea = { uid: string; nombre: string };
 
@@ -94,16 +96,24 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
     };
   }, [salaId, jwtToken, appendMensaje]);
 
+  const displayName = user ? getUserDisplayName(user) : '';
+
+  useEffect(() => {
+    if (!user || !chatReady || !salaId || !displayName) return;
+
+    setUsuariosEnLinea(prev =>
+      prev.map(u => (u.uid === user.id ? { ...u, nombre: displayName } : u)),
+    );
+    refreshPresenceSocket().catch(() => {});
+  }, [displayName, user, chatReady, salaId]);
+
   const sendMensaje = useCallback(
     async (texto: string) => {
       if (!salaId || !user) {
         return { ok: false as const, error: 'Sin sesión activa.' };
       }
 
-      const username =
-        user.username ??
-        [user.nombres, user.apellidos].filter(Boolean).join(' ') ??
-        user.email;
+      const username = getUserDisplayName(user);
 
       const tempId = `pending-${Date.now()}`;
       appendMensaje({
