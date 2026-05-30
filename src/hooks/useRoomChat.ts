@@ -11,56 +11,61 @@ import {
 } from '../lib/socket';
 import { useAuthStore } from '../store/authStore';
 
+export type UsuarioEnLinea = { uid: string; nombre: string };
+
 export function useRoomChat(salaId: string | undefined, jwtToken: string | null) {
   const user = useAuthStore(s => s.user);
 
   const [mensajes, setMensajes] = useState<MensajePublico[]>([]);
+  const [usuariosEnLinea, setUsuariosEnLinea] = useState<UsuarioEnLinea[]>([]);
   const [chatReady, setChatReady] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
-  // Referencia para saber si el efecto sigue vigente tras async
-  const activeRef = useRef(true);
+  const sessionRef = useRef(0);
 
-  // ── Conexión al socket y carga de historial ──────────────────────────────
+  const appendMensaje = useCallback((msg: MensajePublico) => {
+    setMensajes(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
+  }, []);
+
   useEffect(() => {
     if (!salaId || !jwtToken) return;
 
-    activeRef.current = true;
+    const session = ++sessionRef.current;
     setChatReady(false);
     setChatError(null);
+    setUsuariosEnLinea([]);
 
-    let sock: ReturnType<typeof getActiveSocket> = null;
+    let onMensaje: ((msg: MensajePublico) => void) | null = null;
+    let onPresencia: ((data: { salaId: string; usuarios: UsuarioEnLinea[] }) => void) | null = null;
+    let onReconnect: (() => void) | null = null;
 
     (async () => {
       try {
-        // 1. Cargar historial REST
         const history = await getMensajes(jwtToken, salaId, 50);
-        if (!activeRef.current) return;
+        if (session !== sessionRef.current) return;
         setMensajes(history);
 
-        // 2. Conectar socket
-        sock = await connectSocket(jwtToken);
-        if (!activeRef.current) return;
+        const sock = await connectSocket(jwtToken);
+        if (session !== sessionRef.current) return;
 
-        // 3. Registrar listener DIRECTAMENTE en el socket
-        const onMensaje = (msg: MensajePublico) => {
-          if (msg.salaId !== salaId) return;
-          setMensajes(prev =>
-            prev.some(m => m.id === msg.id) ? prev : [...prev, msg],
-          );
+        onMensaje = (msg: MensajePublico) => {
+          if (msg.salaId === salaId) appendMensaje(msg);
         };
+
+        onPresencia = (data: { salaId: string; usuarios: UsuarioEnLinea[] }) => {
+          if (data.salaId === salaId) setUsuariosEnLinea(data.usuarios);
+        };
+
+        onReconnect = () => {
+          if (session === sessionRef.current) joinSalaSocket(salaId);
+        };
+
         sock.on('mensaje:nuevo', onMensaje);
-
-        // 4. Re-registrar listener tras reconexión
-        const onReconnect = async () => {
-          if (!activeRef.current) return;
-          await joinSalaSocket(salaId);
-        };
+        sock.on('presencia:actualizada', onPresencia);
         sock.io.on('reconnect', onReconnect);
 
-        // 5. Unirse a la sala en el socket
         const joinRes = await joinSalaSocket(salaId);
-        if (!activeRef.current) return;
+        if (session !== sessionRef.current) return;
 
         if (!joinRes.ok) {
           setChatError(joinRes.error);
@@ -69,29 +74,26 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
 
         setChatReady(true);
       } catch (err) {
-        if (!activeRef.current) return;
-        setChatError(
-          err instanceof Error ? err.message : 'Error al conectar el chat.',
-        );
+        if (session !== sessionRef.current) return;
+        setChatError(err instanceof Error ? err.message : 'Error al conectar el chat.');
       }
     })();
 
     return () => {
-      activeRef.current = false;
-
+      sessionRef.current++;
       const s = getActiveSocket();
       if (s) {
-        s.off('mensaje:nuevo');
-        s.io.off('reconnect');
+        if (onMensaje) s.off('mensaje:nuevo', onMensaje);
+        if (onPresencia) s.off('presencia:actualizada', onPresencia);
+        if (onReconnect) s.io.off('reconnect', onReconnect);
       }
       leaveSalaSocket(salaId);
       disconnectSocket();
       setChatReady(false);
+      setUsuariosEnLinea([]);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [salaId, jwtToken]);
+  }, [salaId, jwtToken, appendMensaje]);
 
-  // ── Enviar mensaje ────────────────────────────────────────────────────────
   const sendMensaje = useCallback(
     async (texto: string) => {
       if (!salaId || !user) {
@@ -103,29 +105,23 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
         [user.nombres, user.apellidos].filter(Boolean).join(' ') ??
         user.email;
 
-      // Mensaje optimista local
       const tempId = `pending-${Date.now()}`;
-      const optimistic: MensajePublico = {
+      appendMensaje({
         id: tempId,
         salaId,
         uid: user.id,
         username,
         texto,
         createdAt: new Date().toISOString(),
-      };
-
-      setMensajes(prev => [...prev, optimistic]);
+      });
 
       const res = await sendMensajeSocket(salaId, texto);
 
       if (!res.ok) {
-        // Revertir si falla
         setMensajes(prev => prev.filter(m => m.id !== tempId));
         return res;
       }
 
-      // Reemplazar el optimista por el mensaje real del servidor
-      // (el evento mensaje:nuevo del socket también llega, el dedup por id lo maneja)
       setMensajes(prev => {
         const filtered = prev.filter(m => m.id !== tempId && m.id !== res.mensaje.id);
         return [...filtered, res.mensaje];
@@ -133,9 +129,8 @@ export function useRoomChat(salaId: string | undefined, jwtToken: string | null)
 
       return res;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salaId, user?.id],
+    [salaId, user, appendMensaje],
   );
 
-  return { mensajes, chatReady, chatError, sendMensaje };
+  return { mensajes, usuariosEnLinea, chatReady, chatError, sendMensaje };
 }

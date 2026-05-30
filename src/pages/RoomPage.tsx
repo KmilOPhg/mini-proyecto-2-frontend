@@ -2,23 +2,14 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getSala, joinSala } from '../services/api';
-import type { SalaPublica } from '../services/api';
+import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
 import { useAuthStore } from '../store/authStore';
 import {
   salaShareCode, formatMessageTime, validateMensajeTexto,
+  getInitials, participantGradientFromUid,
 } from '../utils/sala';
-import type { MensajePublico } from '../services/api';
-
-// ── Static mock participants (UI only) ───────────────────────────────────────
-const MOCK_PARTICIPANTS = [
-  { name: 'Tú', isYou: true, isHost: false, gradient: 'linear-gradient(135deg, #6366F1 0%, #4338CA 100%)', initials: null as string | null, muted: true, hand: false, spotlight: false },
-  { name: 'Anfitrión HOST', isYou: false, isHost: true, gradient: 'linear-gradient(135deg, #6366F1 0%, #4338CA 100%)', initials: null, muted: false, hand: false, spotlight: true },
-  { name: 'Participante 1', isYou: false, isHost: false, gradient: '#1E3A5F', initials: 'P1', muted: false, hand: false, spotlight: false },
-  { name: 'Participante 2', isYou: false, isHost: false, gradient: 'linear-gradient(135deg, #059669 0%, #042F2E 100%)', initials: null, muted: true, hand: false, spotlight: false },
-  { name: 'Participante 3', isYou: false, isHost: false, gradient: '#78350F', initials: 'P3', muted: false, hand: true, spotlight: false },
-  { name: 'Participante 4', isYou: false, isHost: false, gradient: '#450A0A', initials: 'P4', muted: true, hand: false, spotlight: false },
-];
+import type { UsuarioEnLinea } from '../hooks/useRoomChat';
 
 function BackIcon() {
   return (
@@ -33,6 +24,43 @@ function SendIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
     </svg>
+  );
+}
+
+function ParticipantTile({
+  usuario, isYou, isHost,
+}: {
+  usuario: UsuarioEnLinea;
+  isYou: boolean;
+  isHost: boolean;
+}) {
+  const initials = getInitials(usuario.nombre);
+  const gradient = participantGradientFromUid(usuario.uid);
+  const shortName = isYou ? 'Tú' : usuario.nombre.split(' ')[0] ?? usuario.nombre;
+
+  return (
+    <div
+      className="relative rounded-[14px] overflow-hidden flex items-end p-3"
+      style={{
+        background: gradient,
+        border: isHost ? '2px solid rgba(99,102,241,0.7)' : '1px solid rgba(148,163,184,0.1)',
+        boxShadow: isHost ? '0 0 24px rgba(99,102,241,0.25)' : 'none',
+        minHeight: 120,
+      }}
+    >
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-3xl font-bold" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          {initials}
+        </span>
+      </div>
+      <span
+        className="relative z-10 text-[12px] font-medium px-2 py-0.5 rounded-md"
+        style={{ background: 'rgba(0,0,0,0.45)', color: '#F8FAFC' }}
+      >
+        {shortName}
+        {isHost && <span className="ml-1 text-[10px]" style={{ color: '#818CF8' }}>HOST</span>}
+      </span>
+    </div>
   );
 }
 
@@ -79,9 +107,10 @@ export default function RoomPage() {
   const [chatOpen, setChatOpen] = useState(true);
   const [elapsed, setElapsed] = useState('00:00');
 
-  const { mensajes, chatReady, chatError, sendMensaje } = useRoomChat(id, jwtToken ?? null);
+  const { mensajes, usuariosEnLinea, chatReady, chatError, sendMensaje } = useRoomChat(id, jwtToken ?? null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef(Date.now());
 
   const myUid = user?.id ?? '';
@@ -163,6 +192,7 @@ export default function RoomPage() {
       }
     } finally {
       setSending(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }
 
@@ -209,6 +239,20 @@ export default function RoomPage() {
 
   const roomCode = salaShareCode(sala);
   const hostLabel = sala.esCreador ? `${displayName.split(' ')[0] ?? 'Tú'} (tú)` : 'Anfitrión';
+
+  const participantesOrdenados = [...usuariosEnLinea].sort((a, b) => {
+    if (a.uid === sala.creadorUid) return -1;
+    if (b.uid === sala.creadorUid) return 1;
+    if (a.uid === myUid) return -1;
+    if (b.uid === myUid) return 1;
+    return a.nombre.localeCompare(b.nombre);
+  });
+
+  const gridCols = participantesOrdenados.length <= 1
+    ? 1
+    : participantesOrdenados.length <= 4
+      ? 2
+      : 3;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#0B1220', color: '#F8FAFC' }}>
@@ -265,47 +309,40 @@ export default function RoomPage() {
         {/* Video grid (UI only) */}
         <main className="flex-1 p-4 min-w-0 flex flex-col">
           <div
-            className="flex-1 grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' }}
+            className="flex-1 grid gap-3 content-start"
+            style={{
+              gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+              gridAutoRows: 'minmax(120px, auto)',
+            }}
           >
-            {MOCK_PARTICIPANTS.map((p, i) => (
+            {!chatReady && participantesOrdenados.length === 0 ? (
               <div
-                key={i}
-                className="relative rounded-[14px] overflow-hidden flex items-end p-3"
-                style={{
-                  background: p.gradient,
-                  border: p.spotlight ? '2px solid rgba(99,102,241,0.7)' : '1px solid rgba(148,163,184,0.1)',
-                  boxShadow: p.spotlight ? '0 0 24px rgba(99,102,241,0.25)' : 'none',
-                  minHeight: 120,
-                }}
+                className="col-span-full flex items-center justify-center rounded-[14px] py-16"
+                style={{ background: 'rgba(148,163,184,0.06)', border: '1px dashed rgba(148,163,184,0.18)' }}
               >
-                {p.initials ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-bold" style={{ color: 'rgba(255,255,255,0.35)' }}>{p.initials}</span>
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                    <div className="w-16 h-16 rounded-full" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5), rgba(255,255,255,0.05))' }} />
-                  </div>
-                )}
-                {p.hand && (
-                  <span className="absolute top-2 right-2 text-lg" aria-hidden="true">✋</span>
-                )}
-                {p.muted && (
-                  <span className="absolute bottom-2 left-2 opacity-70" aria-hidden="true">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
-                      <path d="M1 1l22 22M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.36-1.86" />
-                      <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
-                      <path d="M12 19v4M8 23h8" />
-                    </svg>
-                  </span>
-                )}
-                <span className="relative z-10 text-[12px] font-medium px-2 py-0.5 rounded-md" style={{ background: 'rgba(0,0,0,0.45)', color: '#F8FAFC' }}>
-                  {p.isYou ? 'Tú' : p.name}
-                  {p.isHost && <span className="ml-1 text-[10px]" style={{ color: '#818CF8' }}>HOST</span>}
-                </span>
+                <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>
+                  Conectando participantes…
+                </p>
               </div>
-            ))}
+            ) : participantesOrdenados.length === 0 ? (
+              <div
+                className="col-span-full flex items-center justify-center rounded-[14px] py-16"
+                style={{ background: 'rgba(148,163,184,0.06)', border: '1px dashed rgba(148,163,184,0.18)' }}
+              >
+                <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>
+                  Nadie más está en la sala ahora.
+                </p>
+              </div>
+            ) : (
+              participantesOrdenados.map(u => (
+                <ParticipantTile
+                  key={u.uid}
+                  usuario={u}
+                  isYou={u.uid === myUid}
+                  isHost={u.uid === sala.creadorUid}
+                />
+              ))
+            )}
           </div>
         </main>
 
@@ -369,12 +406,14 @@ export default function RoomPage() {
               style={{ borderTop: '1px solid rgba(148,163,184,0.1)' }}
             >
               <input
+                ref={inputRef}
                 type="text"
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 placeholder="Escribe un mensaje…"
                 maxLength={2000}
-                disabled={sending || !chatReady}
+                disabled={!chatReady}
+                autoFocus
                 className="flex-1 px-3 py-2.5 rounded-[10px] text-[13px] outline-none"
                 style={{
                   background: '#0F172A',
@@ -409,7 +448,7 @@ export default function RoomPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
             </svg>
-            {sala.participantes.length}
+            {usuariosEnLinea.length > 0 ? usuariosEnLinea.length : sala.participantes.length}
           </span>
           <span>ID · {roomCode}</span>
           <button
