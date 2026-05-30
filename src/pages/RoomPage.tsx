@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getSala, joinSala, deleteSala } from '../services/api';
+import { resolveSalaAccess, deleteSala } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
 import { useAuthStore } from '../store/authStore';
 import {
-  salaShareCode, formatMessageTime, validateMensajeTexto,
+  salaShareCode, salaRoomPathFromSala, salaShareUrl, isCodigoInvitacion,
+  formatMessageTime, validateMensajeTexto,
   getInitials, participantGradientFromUid,
 } from '../utils/sala';
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
@@ -237,12 +238,13 @@ function ChatMessage({ msg, isOwn }: { msg: MensajePublico; isOwn: boolean }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function RoomPage() {
-  const { id } = useParams<{ id: string }>();
+  const { code: routeCode } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const jwtToken = useAuthStore(s => s.jwtToken);
   const user = useAuthStore(s => s.user);
 
   const [sala, setSala] = useState<SalaPublica | null>(null);
+  const salaId = sala?.id;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -263,7 +265,7 @@ export default function RoomPage() {
   }, [navigate]);
 
   const { mensajes, usuariosEnLinea, chatReady, chatError, sendMensaje } = useRoomChat(
-    id,
+    salaId,
     jwtToken ?? null,
     { onSalaTerminada: handleSalaTerminada },
   );
@@ -289,20 +291,13 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
-    if (!id || !jwtToken) return;
+    if (!routeCode || !jwtToken) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        let salaData: SalaPublica;
-        try {
-          salaData = await getSala(jwtToken, id);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : '';
-          if (msg.includes('acceso')) salaData = await joinSala(jwtToken, id);
-          else throw err;
-        }
+        const salaData = await resolveSalaAccess(jwtToken, routeCode);
         if (!cancelled) setSala(salaData);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'No se pudo cargar la sala.');
@@ -311,11 +306,20 @@ export default function RoomPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [id, jwtToken]);
+  }, [routeCode, jwtToken]);
+
+  useEffect(() => {
+    if (!sala || !routeCode) return;
+    const shareCode = salaShareCode(sala);
+    const parsed = decodeURIComponent(routeCode).trim().toUpperCase();
+    if (!isCodigoInvitacion(parsed) || parsed !== shareCode) {
+      navigate(salaRoomPathFromSala(sala), { replace: true });
+    }
+  }, [sala, routeCode, navigate]);
 
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!id || sending || !chatReady) return;
+    if (!salaId || sending || !chatReady) return;
     const validation = validateMensajeTexto(draft);
     if (validation) { toast.error(validation); return; }
     setSending(true);
@@ -388,9 +392,9 @@ export default function RoomPage() {
   }
 
   async function handleEndSession() {
-    if (!jwtToken || !id) return;
+    if (!jwtToken || !salaId) return;
     skipSalaTerminadaRef.current = true;
-    await deleteSala(jwtToken, id);
+    await deleteSala(jwtToken, salaId);
     setShowLeaveModal(false);
     toast.success('Sesión terminada para todos los participantes.');
     navigate('/dashboard');
@@ -458,7 +462,17 @@ export default function RoomPage() {
             <IconBtn label="Cambiar diseño" comingSoon>
               <IconLayoutGrid size={16} />
             </IconBtn>
-            <IconBtn label="Copiar enlace" comingSoon>
+            <IconBtn
+              label="Copiar enlace de la sala"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(salaShareUrl(sala));
+                  toast.success('Enlace copiado.');
+                } catch {
+                  toast.error('No se pudo copiar el enlace.');
+                }
+              }}
+            >
               <IconLink size={16} />
             </IconBtn>
             <IconBtn label="Participantes" badge={onlineCount} comingSoon>
@@ -639,7 +653,7 @@ export default function RoomPage() {
             <button
               type="button"
               onClick={async () => {
-                try { await navigator.clipboard.writeText(roomCode); toast.success('ID copiado.'); }
+                try { await navigator.clipboard.writeText(salaShareUrl(sala)); toast.success('Enlace copiado.'); }
                 catch { toast.error('No se pudo copiar.'); }
               }}
               className="cursor-pointer border-0 bg-transparent text-[12px] font-medium p-0 flex-none"

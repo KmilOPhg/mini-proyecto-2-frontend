@@ -36,7 +36,21 @@ export function parseSalaJoinInput(raw: string): string {
 }
 
 export function salaShareCode(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
-  return sala.codigoInvitacion ?? sala.id;
+  return sala.codigoInvitacion ?? formatSalaCode(sala.id);
+}
+
+export function salaRoomPath(code: string): string {
+  return `/salas/${encodeURIComponent(code.trim().toUpperCase())}`;
+}
+
+export function salaRoomPathFromSala(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
+  return salaRoomPath(salaShareCode(sala));
+}
+
+export function salaShareUrl(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
+  const path = salaRoomPathFromSala(sala);
+  if (typeof window !== 'undefined') return `${window.location.origin}${path}`;
+  return path;
 }
 
 function colorFromId(id: string): RoomColor {

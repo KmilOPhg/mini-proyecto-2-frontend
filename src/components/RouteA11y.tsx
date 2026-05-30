@@ -14,7 +14,7 @@ export default function RouteA11y() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    if (pathname.startsWith('/salas/')) return;
+    if (pathname.startsWith('/salas/') || pathname.startsWith('/r/')) return;
 
     const pageTitle = STATIC_TITLES[pathname] ?? 'CrossFlow';
     document.title = pageTitle === 'CrossFlow' ? pageTitle : `${pageTitle} · CrossFlow`;

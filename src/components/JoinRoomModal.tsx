@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { joinSala, joinSalaPorCodigo } from '../services/api';
+import { joinSala, joinSalaPorCodigo, type SalaPublica } from '../services/api';
 import { isCodigoInvitacion, parseSalaJoinInput } from '../utils/sala';
 import { useAuthStore } from '../store/authStore';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -8,7 +8,7 @@ import { useModalA11y } from '../hooks/useModalA11y';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onJoined: (salaId: string) => void;
+  onJoined: (sala: SalaPublica) => void;
 }
 
 function sanitizeCodePart(value: string): string {
@@ -158,7 +158,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
         ? await joinSalaPorCodigo(jwtToken, target)
         : await joinSala(jwtToken, target);
       toast.success(`Te uniste a "${sala.nombre}".`);
-      onJoined(sala.id);
+      onJoined(sala);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo unir a la sala.');

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '../store/authStore';
 import { listMisSalas } from '../services/api';
 import type { SalaPublica } from '../services/api';
-import { salaToRoomCard, COLOR_GRADIENTS, getInitials, type RoomCardData } from '../utils/sala';
+import { salaToRoomCard, salaRoomPathFromSala, COLOR_GRADIENTS, getInitials, type RoomCardData } from '../utils/sala';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProfileEditModal from '../components/ProfileEditModal';
@@ -201,7 +201,7 @@ const ENTER_ROOM_BTN_STYLE = {
 } as const;
 
 // ─── Room Card ────────────────────────────────────────────────────────────────
-function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (id: string) => void }) {
+function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'; onEnter: (code: string) => void }) {
   const grad = COLOR_GRADIENTS[r.color];
 
   if (view === 'list') {
@@ -236,7 +236,7 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
           </div>
           <button
             type="button"
-            onClick={() => onEnter(r.id)}
+            onClick={() => onEnter(r.code)}
             aria-label={`Entrar a ${r.title}`}
             className={`${ENTER_ROOM_BTN_CLASS} text-sm w-full sm:w-auto`}
             style={ENTER_ROOM_BTN_STYLE}
@@ -305,7 +305,7 @@ function RoomCard({ r, view, onEnter }: { r: RoomCardData; view: 'grid' | 'list'
         </div>
         <button
           type="button"
-          onClick={() => onEnter(r.id)}
+          onClick={() => onEnter(r.code)}
           aria-label={`Entrar a ${r.title}`}
           className={`${ENTER_ROOM_BTN_CLASS} text-[13px]`}
           style={ENTER_ROOM_BTN_STYLE}
@@ -425,13 +425,13 @@ export default function DashboardPage() {
 
   const liveCount = rooms.filter(r => r.status === 'live').length;
 
-  function handleEnterRoom(id: string) {
-    navigate(`/salas/${id}`);
+  function handleEnterRoom(code: string) {
+    navigate(`/salas/${encodeURIComponent(code.trim().toUpperCase())}`);
   }
 
   function handleRoomCreated(sala: SalaPublica) {
     setSalas(prev => [sala, ...prev.filter(s => s.id !== sala.id)]);
-    navigate(`/salas/${sala.id}`);
+    navigate(salaRoomPathFromSala(sala));
   }
 
   async function handleLogout() {
@@ -586,7 +586,7 @@ export default function DashboardPage() {
       <JoinRoomModal
         open={showJoinRoomModal}
         onClose={() => setShowJoinRoomModal(false)}
-        onJoined={handleEnterRoom}
+        onJoined={(sala) => navigate(salaRoomPathFromSala(sala))}
       />
     </>
   );
