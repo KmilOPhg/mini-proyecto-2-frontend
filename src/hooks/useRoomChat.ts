@@ -107,8 +107,10 @@ export function useRoomChat(
         if (onSalaTerminada) s.off('sala:terminada', onSalaTerminada);
         if (onReconnect) s.io.off('reconnect', onReconnect);
       }
-      leaveSalaSocket(salaId);
-      disconnectSocket();
+      void (async () => {
+        await leaveSalaSocket(salaId);
+        disconnectSocket();
+      })();
       setChatReady(false);
       setUsuariosEnLinea([]);
     };
