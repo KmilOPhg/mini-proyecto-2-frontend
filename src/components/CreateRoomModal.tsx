@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { createSala } from '../services/api';
 import type { SalaPublica } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { COMING_SOON_LABEL } from './ComingSoonButton';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Step = 1 | 2;
@@ -22,6 +23,8 @@ const MATERIAS = [
   'Economía', 'Contabilidad', 'Derecho', 'Medicina',
   'Psicología', 'Historia', 'Literatura', 'Inglés', 'Otra',
 ];
+
+const FIELD_DISABLED_STYLE = { opacity: 0.45, cursor: 'not-allowed' } as const;
 
 const AFORO_MIN = 2;
 const AFORO_MAX = 50;
@@ -152,18 +155,23 @@ function StepIndicator({ current }: { current: Step }) {
 
 // ── Privacy option card ───────────────────────────────────────────────────────
 function PrivacyCard({
-  value: _value, label, description, icon, selected, onSelect,
+  value: _value, label, description, icon, selected, onSelect, disabled = false,
 }: {
   value: Privacy; label: string; description: string;
-  icon: React.ReactNode; selected: boolean; onSelect: () => void;
+  icon: React.ReactNode; selected: boolean; onSelect: () => void; disabled?: boolean;
 }) {
   return (
     <button
-      onClick={onSelect}
-      className="w-full flex items-center gap-4 px-4 py-3.5 rounded-[12px] text-left cursor-pointer border transition-all"
+      type="button"
+      onClick={disabled ? undefined : onSelect}
+      disabled={disabled}
+      title={disabled ? COMING_SOON_LABEL : undefined}
+      aria-label={disabled ? `${label} — ${COMING_SOON_LABEL}` : label}
+      className="w-full flex items-center gap-4 px-4 py-3.5 rounded-[12px] text-left border transition-all"
       style={{
         background: selected ? 'rgba(99,102,241,0.1)' : 'rgba(148,163,184,0.04)',
         border: selected ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(148,163,184,0.14)',
+        ...(disabled ? FIELD_DISABLED_STYLE : { cursor: 'pointer' }),
       }}
     >
       <div
@@ -265,7 +273,14 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
     if (!jwtToken) return;
     setCreating(true);
     try {
-      const sala = await createSala(jwtToken, nombre.trim(), roomCode);
+      const sala = await createSala(jwtToken, {
+        nombre: nombre.trim(),
+        codigoInvitacion: roomCode,
+        aforoMaximo: aforo,
+        privacidad: privacy,
+        materia: materia !== 'Otra' ? materia : undefined,
+        descripcion: descripcion.trim() || undefined,
+      });
       toast.success('¡Sala creada correctamente!');
       onCreated?.(sala);
       onClose();
@@ -395,11 +410,15 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
                   <select
                     value={materia}
                     onChange={e => setMateria(e.target.value)}
-                    className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none appearance-none cursor-pointer"
+                    disabled
+                    title={COMING_SOON_LABEL}
+                    aria-label={`Materia — ${COMING_SOON_LABEL}`}
+                    className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none appearance-none"
                     style={{
                       background: '#0F172A',
                       color: '#F8FAFC',
                       border: '1px solid rgba(148,163,184,0.18)',
+                      ...FIELD_DISABLED_STYLE,
                     }}
                   >
                     {MATERIAS.map(m => (
@@ -431,11 +450,15 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
                       const v = Math.max(AFORO_MIN, Math.min(AFORO_MAX, Number(e.target.value) || AFORO_MIN));
                       setAforo(v);
                     }}
+                    disabled
+                    title={COMING_SOON_LABEL}
+                    aria-label={`Aforo máximo — ${COMING_SOON_LABEL}`}
                     className="w-24 pl-9 pr-3 py-3 rounded-[10px] text-[13.5px] outline-none"
                     style={{
                       background: '#0F172A',
                       color: '#F8FAFC',
                       border: '1px solid rgba(148,163,184,0.18)',
+                      ...FIELD_DISABLED_STYLE,
                     }}
                   />
                 </div>
@@ -453,6 +476,9 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
                 placeholder="¿Qué van a trabajar en esta sesión?"
                 rows={4}
                 maxLength={300}
+                disabled
+                title={COMING_SOON_LABEL}
+                aria-label={`Descripción — ${COMING_SOON_LABEL}`}
                 className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none resize-y"
                 style={{
                   background: '#0F172A',
@@ -460,6 +486,7 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
                   border: '1px solid rgba(148,163,184,0.18)',
                   minHeight: 96,
                   fontFamily: 'inherit',
+                  ...FIELD_DISABLED_STYLE,
                 }}
               />
             </div>
@@ -504,14 +531,16 @@ export default function CreateRoomModal({ open, onClose, onCreated }: Props) {
                 icon={<GlobeIcon />}
                 selected={privacy === 'publica'}
                 onSelect={() => setPrivacy('publica')}
+                disabled
               />
               <PrivacyCard
                 value="enlace"
                 label="Por enlace"
-                description="Solo quienes tienen el enlace o ID pueden entrar."
+                description="Solo quienes tienen el código CRF pueden unirse."
                 icon={<LinkIcon />}
                 selected={privacy === 'enlace'}
                 onSelect={() => setPrivacy('enlace')}
+                disabled
               />
             </div>
 

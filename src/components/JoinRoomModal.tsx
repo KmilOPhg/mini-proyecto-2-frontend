@@ -4,6 +4,8 @@ import { joinSala, joinSalaPorCodigo } from '../services/api';
 import { isCodigoInvitacion, parseSalaJoinInput } from '../utils/sala';
 import { useAuthStore } from '../store/authStore';
 
+import { COMING_SOON_LABEL } from './ComingSoonButton';
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -23,7 +25,7 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const [salaId, setSalaId] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [joining, setJoining] = useState(false);
+  const [_joining, setJoining] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -110,12 +112,16 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
               value={salaId}
               onChange={e => { setSalaId(e.target.value); setError(null); }}
               placeholder="Ej. CRF-7K3-92Q"
-              autoFocus
+              disabled
+              title={COMING_SOON_LABEL}
+              aria-label={`ID de la sala — ${COMING_SOON_LABEL}`}
               className="w-full px-3.5 py-3 rounded-[10px] text-[13.5px] outline-none font-mono"
               style={{
                 background: '#0F172A',
                 color: '#F8FAFC',
-                border: error ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(148,163,184,0.18)',
+                border: '1px solid rgba(148,163,184,0.18)',
+                opacity: 0.45,
+                cursor: 'not-allowed',
               }}
             />
             {error && (
@@ -137,14 +143,18 @@ export default function JoinRoomModal({ open, onClose, onJoined }: Props) {
           </button>
           <button
             onClick={handleJoin}
-            disabled={joining}
-            className="px-5 py-2.5 rounded-[10px] text-[13.5px] font-semibold cursor-pointer text-white"
+            disabled
+            title={COMING_SOON_LABEL}
+            aria-label={`Unirse — ${COMING_SOON_LABEL}`}
+            className="px-5 py-2.5 rounded-[10px] text-[13.5px] font-semibold text-white"
             style={{
-              background: joining ? 'rgba(99,102,241,0.5)' : 'linear-gradient(180deg, #7477F5 0%, #5458E8 100%)',
+              background: 'rgba(99,102,241,0.35)',
               border: '1px solid rgba(255,255,255,0.06)',
+              opacity: 0.45,
+              cursor: 'not-allowed',
             }}
           >
-            {joining ? 'Uniéndose…' : 'Unirse'}
+            Unirse
           </button>
         </div>
       </div>

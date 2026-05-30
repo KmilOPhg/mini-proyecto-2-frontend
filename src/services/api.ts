@@ -100,25 +100,44 @@ export function deleteMyAccount(token: string) {
 
 // ── Salas ──────────────────────────────────────────────────────────────────────
 
+export type PrivacidadSala = 'publica' | 'enlace';
+
 export type SalaPublica = {
   id: string;
   nombre: string;
   creadorUid: string;
   participantes: string[];
   codigoInvitacion: string | null;
+  aforoMaximo: number;
+  privacidad: PrivacidadSala;
+  materia: string | null;
+  descripcion: string | null;
   esCreador: boolean;
   usuariosEnLinea: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
 
-export function createSala(token: string, nombre: string, codigoInvitacion?: string) {
+export type CreateSalaInput = {
+  nombre: string;
+  codigoInvitacion?: string;
+  aforoMaximo: number;
+  privacidad: PrivacidadSala;
+  materia?: string;
+  descripcion?: string;
+};
+
+export function createSala(token: string, input: CreateSalaInput) {
   return request<SalaPublica>('/salas', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      nombre,
-      ...(codigoInvitacion ? { codigoInvitacion } : {}),
+      nombre: input.nombre,
+      aforoMaximo: input.aforoMaximo,
+      privacidad: input.privacidad,
+      ...(input.codigoInvitacion ? { codigoInvitacion: input.codigoInvitacion } : {}),
+      ...(input.materia ? { materia: input.materia } : {}),
+      ...(input.descripcion ? { descripcion: input.descripcion } : {}),
     }),
   });
 }
