@@ -36,7 +36,7 @@ export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCrea
 
   return (
     <header
-      className="sticky top-0 z-10 flex flex-col gap-3 sm:gap-4 px-4 sm:px-5 lg:px-7 py-3 sm:py-[18px] pt-safe"
+      className="sticky top-0 z-10 flex flex-col gap-3 sm:gap-4 px-4 sm:px-5 lg:px-7 cf-app-header-pt pb-3 sm:pb-[18px]"
       style={{
         background: 'rgba(15,23,42,0.72)',
         backdropFilter: 'blur(14px) saturate(140%)',
@@ -87,6 +87,18 @@ export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCrea
 
           <div className="hidden sm:block w-px h-[22px] mx-0.5" style={{ background: 'rgba(148,163,184,0.14)' }} aria-hidden="true" />
 
+          <button
+            type="button"
+            aria-label="Perfil"
+            onClick={onOpenProfile}
+            className="flex sm:hidden w-9 h-9 rounded-[10px] items-center justify-center text-white text-xs font-semibold cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #6366F1, #38BDF8)',
+              border: '1px solid rgba(148,163,184,0.14)',
+            }}
+          >
+            {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full rounded-[10px] object-cover" /> : initials}
+          </button>
           <button
             type="button"
             aria-label="Perfil"

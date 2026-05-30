@@ -28,13 +28,29 @@ export function isCodigoInvitacion(value: string): boolean {
 
 export function parseSalaJoinInput(raw: string): string {
   const trimmed = raw.trim();
-  const urlMatch = trimmed.match(/\/salas\/([^/?#]+)/i);
+  const urlMatch = trimmed.match(/\/(?:salas|r)\/([^/?#]+)/i);
   if (urlMatch) return decodeURIComponent(urlMatch[1]!);
-  return trimmed;
+  const codigoMatch = trimmed.match(/CRF-[A-Z0-9]{3}-[A-Z0-9]{3}/i);
+  if (codigoMatch) return codigoMatch[0]!.toUpperCase();
+  return trimmed.toUpperCase();
 }
 
 export function salaShareCode(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
-  return sala.codigoInvitacion ?? sala.id;
+  return sala.codigoInvitacion ?? formatSalaCode(sala.id);
+}
+
+export function salaRoomPath(code: string): string {
+  return `/salas/${encodeURIComponent(code.trim().toUpperCase())}`;
+}
+
+export function salaRoomPathFromSala(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
+  return salaRoomPath(salaShareCode(sala));
+}
+
+export function salaShareUrl(sala: Pick<SalaPublica, 'id' | 'codigoInvitacion'>): string {
+  const path = salaRoomPathFromSala(sala);
+  if (typeof window !== 'undefined') return `${window.location.origin}${path}`;
+  return path;
 }
 
 function colorFromId(id: string): RoomColor {

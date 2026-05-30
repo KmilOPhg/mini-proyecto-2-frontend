@@ -174,6 +174,34 @@ export function joinSalaPorCodigo(token: string, codigo: string) {
   });
 }
 
+function shouldTryJoin(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : '';
+  return (
+    msg.includes('acceso')
+    || msg.includes('encontr')
+    || msg.includes('existe')
+    || msg.includes('404')
+    || msg.includes('not found')
+  );
+}
+
+/** Resuelve una sala desde el segmento de URL (código CRF-XXX-YYY o id interno). */
+export async function resolveSalaAccess(token: string, routeParam: string): Promise<SalaPublica> {
+  const parsed = decodeURIComponent(routeParam).trim();
+
+  if (/^CRF-[A-Z0-9]{3}-[A-Z0-9]{3}$/i.test(parsed)) {
+    // GET /salas/:id solo acepta el id de Firestore, no el código CRF.
+    return joinSalaPorCodigo(token, parsed.toUpperCase());
+  }
+
+  try {
+    return await getSala(token, parsed);
+  } catch (err) {
+    if (shouldTryJoin(err)) return joinSala(token, parsed);
+    throw err;
+  }
+}
+
 export type MensajePublico = {
   id: string;
   salaId: string;

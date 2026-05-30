@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getSala, joinSala, deleteSala } from '../services/api';
+import { resolveSalaAccess, deleteSala } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
 import { useAuthStore } from '../store/authStore';
 import {
-  salaShareCode, formatMessageTime, validateMensajeTexto,
+  salaShareCode, salaRoomPathFromSala, salaShareUrl, isCodigoInvitacion,
+  formatMessageTime, validateMensajeTexto,
   getInitials, participantGradientFromUid,
 } from '../utils/sala';
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
@@ -24,8 +25,8 @@ import {
 
 const iconBtnClass = 'relative w-9 h-9 rounded-[10px] flex items-center justify-center border-0 transition-colors';
 const panelToggleClass = 'w-10 h-10 rounded-[12px] flex items-center justify-center border-0 transition-colors';
-const controlBtnClass = 'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1.5 px-1 border-0 bg-transparent';
-const exitBtnClass = 'flex flex-col items-center justify-center gap-1 min-w-[56px] py-1.5 px-2 rounded-[14px] border-0 cursor-pointer';
+const controlBtnClass = 'flex flex-col items-center justify-center gap-1 min-w-[48px] sm:min-w-[56px] py-1.5 px-0.5 sm:px-1 border-0 bg-transparent shrink-0';
+const exitBtnClass = 'flex flex-col items-center justify-center gap-1 min-w-[48px] sm:min-w-[56px] py-1.5 px-1.5 sm:px-2 rounded-[14px] border-0 cursor-pointer shrink-0';
 
 function IconBtn({ children, active, badge, onClick, label, comingSoon }: {
   children: React.ReactNode; active?: boolean; badge?: number;
@@ -237,12 +238,13 @@ function ChatMessage({ msg, isOwn }: { msg: MensajePublico; isOwn: boolean }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function RoomPage() {
-  const { id } = useParams<{ id: string }>();
+  const { code: routeCode } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const jwtToken = useAuthStore(s => s.jwtToken);
   const user = useAuthStore(s => s.user);
 
   const [sala, setSala] = useState<SalaPublica | null>(null);
+  const salaId = sala?.id;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -263,7 +265,7 @@ export default function RoomPage() {
   }, [navigate]);
 
   const { mensajes, usuariosEnLinea, chatReady, chatError, sendMensaje } = useRoomChat(
-    id,
+    salaId,
     jwtToken ?? null,
     { onSalaTerminada: handleSalaTerminada },
   );
@@ -289,20 +291,13 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
-    if (!id || !jwtToken) return;
+    if (!routeCode || !jwtToken) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        let salaData: SalaPublica;
-        try {
-          salaData = await getSala(jwtToken, id);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : '';
-          if (msg.includes('acceso')) salaData = await joinSala(jwtToken, id);
-          else throw err;
-        }
+        const salaData = await resolveSalaAccess(jwtToken, routeCode);
         if (!cancelled) setSala(salaData);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'No se pudo cargar la sala.');
@@ -311,11 +306,20 @@ export default function RoomPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [id, jwtToken]);
+  }, [routeCode, jwtToken]);
+
+  useEffect(() => {
+    if (!sala || !routeCode) return;
+    const shareCode = salaShareCode(sala);
+    const parsed = decodeURIComponent(routeCode).trim().toUpperCase();
+    if (!isCodigoInvitacion(parsed) || parsed !== shareCode) {
+      navigate(salaRoomPathFromSala(sala), { replace: true });
+    }
+  }, [sala, routeCode, navigate]);
 
   async function handleSend(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!id || sending || !chatReady) return;
+    if (!salaId || sending || !chatReady) return;
     const validation = validateMensajeTexto(draft);
     if (validation) { toast.error(validation); return; }
     setSending(true);
@@ -388,9 +392,9 @@ export default function RoomPage() {
   }
 
   async function handleEndSession() {
-    if (!jwtToken || !id) return;
+    if (!jwtToken || !salaId) return;
     skipSalaTerminadaRef.current = true;
-    await deleteSala(jwtToken, id);
+    await deleteSala(jwtToken, salaId);
     setShowLeaveModal(false);
     toast.success('Sesión terminada para todos los participantes.');
     navigate('/dashboard');
@@ -412,7 +416,7 @@ export default function RoomPage() {
     <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: '#080E1A', color: '#F8FAFC' }}>
       <main id="main" className="flex flex-col flex-1 min-h-0">
       <header
-        className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 flex-none pt-safe"
+        className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 cf-app-header-pt pb-2.5 sm:pb-3 flex-none"
         style={{ background: '#080E1A', borderBottom: '1px solid rgba(148,163,184,0.1)' }}
       >
         <button
@@ -458,7 +462,17 @@ export default function RoomPage() {
             <IconBtn label="Cambiar diseño" comingSoon>
               <IconLayoutGrid size={16} />
             </IconBtn>
-            <IconBtn label="Copiar enlace" comingSoon>
+            <IconBtn
+              label="Copiar enlace de la sala"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(salaShareUrl(sala));
+                  toast.success('Enlace copiado.');
+                } catch {
+                  toast.error('No se pudo copiar el enlace.');
+                }
+              }}
+            >
               <IconLink size={16} />
             </IconBtn>
             <IconBtn label="Participantes" badge={onlineCount} comingSoon>
@@ -614,7 +628,7 @@ export default function RoomPage() {
 
         {/* Bottom bar — full width under video and chat */}
         <footer
-          className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] flex-none items-center px-3 sm:px-5 py-2.5 sm:py-3 pb-safe"
+          className="flex flex-col items-center gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] flex-none sm:items-center px-3 sm:px-5 py-2.5 sm:py-3 pb-safe"
           style={{
             background: '#080E1A',
             borderTop: '1px solid rgba(148,163,184,0.08)',
@@ -639,7 +653,7 @@ export default function RoomPage() {
             <button
               type="button"
               onClick={async () => {
-                try { await navigator.clipboard.writeText(roomCode); toast.success('ID copiado.'); }
+                try { await navigator.clipboard.writeText(salaShareUrl(sala)); toast.success('Enlace copiado.'); }
                 catch { toast.error('No se pudo copiar.'); }
               }}
               className="cursor-pointer border-0 bg-transparent text-[12px] font-medium p-0 flex-none"
@@ -650,7 +664,7 @@ export default function RoomPage() {
           </div>
 
           <div
-            className="flex items-center gap-0.5 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-[20px] justify-self-center w-full sm:w-auto max-w-full overflow-x-auto"
+            className="flex items-center justify-center gap-0.5 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-[20px] w-auto max-w-full mx-auto sm:mx-0 sm:justify-self-center overflow-x-auto"
             style={{
               background: 'rgba(15,23,42,0.95)',
               border: '1px solid rgba(148,163,184,0.14)',
@@ -663,15 +677,13 @@ export default function RoomPage() {
             <ControlBtn label="Cámara">
               <IconVideo size={20} strokeWidth={1.75} />
             </ControlBtn>
-            <span className="hidden sm:contents">
-              <ControlBtn label="Pantalla">
-                <IconMonitorUp size={20} strokeWidth={1.75} />
-              </ControlBtn>
-              <ControlBtn label="Más">
-                <IconMoreHorizontal size={20} />
-              </ControlBtn>
-            </span>
-            <div className="hidden sm:block w-px h-9 mx-1.5" style={{ background: 'rgba(148,163,184,0.18)' }} aria-hidden="true" />
+            <ControlBtn label="Pantalla">
+              <IconMonitorUp size={20} strokeWidth={1.75} />
+            </ControlBtn>
+            <ControlBtn label="Más">
+              <IconMoreHorizontal size={20} />
+            </ControlBtn>
+            <div className="w-px h-9 mx-1.5 flex-none" style={{ background: 'rgba(148,163,184,0.18)' }} aria-hidden="true" />
             <button
               type="button"
               onClick={() => setShowLeaveModal(true)}

@@ -99,7 +99,8 @@ export default function App() {
         <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
         <Route path="/username-setup" element={<RequireNeedsUsername><UsernameSetupPage /></RequireNeedsUsername>} />
         <Route path="/dashboard" element={<RequireSession><DashboardPage /></RequireSession>} />
-        <Route path="/salas/:id" element={<RequireSession><RoomPage /></RequireSession>} />
+        <Route path="/salas/:code" element={<RequireSession><RoomPage /></RequireSession>} />
+        <Route path="/r/:code" element={<RequireSession><RoomPage /></RequireSession>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
