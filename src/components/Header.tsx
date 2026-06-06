@@ -62,15 +62,17 @@ export default function Header({ q, setQ, user, roomCount, onOpenProfile, onCrea
           <button
             type="button"
             onClick={onJoinById}
-            aria-label="Unirse por ID"
-            className="inline-flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-[9px] text-sm font-medium transition-colors cursor-pointer hover:opacity-90"
+            aria-label="Unirse a sala"
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-[9px] text-[12px] sm:text-sm font-medium transition-colors cursor-pointer hover:opacity-90"
             style={{
               background: 'rgba(148,163,184,0.06)',
               border: '1px solid rgba(148,163,184,0.14)',
               color: '#F8FAFC',
             }}
           >
-            <HandIcon /> <span className="hidden sm:inline">Unirse por ID</span>
+            <HandIcon />
+            <span className="sm:hidden">Unirse a sala</span>
+            <span className="hidden sm:inline">Unirse por ID</span>
           </button>
           <button
             type="button"
