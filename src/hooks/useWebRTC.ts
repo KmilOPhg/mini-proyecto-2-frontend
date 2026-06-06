@@ -159,12 +159,11 @@ export function useWebRTC(
       localStreamRef.current = stream;
       setLocalStream(stream);
 
-      // Create PeerJS instance (path = mount de Express; PeerJS añade "/peerjs/id" internamente)
-      const { hostname, port, secure, peerPath } = parseWebRtcUrl();
+      const { hostname, port, secure, peerClientPath } = parseWebRtcUrl();
       const peer = new Peer({
         host: hostname,
         port,
-        path: peerPath === '/peerjs' ? '/' : peerPath,
+        path: peerClientPath,
         config: { iceServers },
         secure,
       });

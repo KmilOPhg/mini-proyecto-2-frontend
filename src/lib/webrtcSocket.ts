@@ -12,30 +12,47 @@ function resolveWebRtcUrl(): string {
 export const WEBRTC_URL = resolveWebRtcUrl();
 
 export type WebRtcConnectionConfig = {
-  /** Base URL para Socket.IO y fetch (sin path extra). */
+  /** Origin para Socket.IO y fetch (sin path /peerjs). */
   baseUrl: string;
   hostname: string;
   port: number;
   secure: boolean;
-  /** Path raíz del servidor PeerJS montado en Express (p. ej. "/peerjs"). */
-  peerPath: string;
+  /** Path del cliente PeerJS (PeerJS añade "/peerjs/id" → mount "/peerjs" en el servidor). */
+  peerClientPath: string;
 };
+
+function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
 
 /** Parsea VITE_WEBRTC_URL para Socket.IO y PeerJS (puerto/path correctos en prod). */
 export function parseWebRtcUrl(url = WEBRTC_URL): WebRtcConnectionConfig {
-  const baseUrl = parseServiceUrl(url, 3002);
-  const parsed = new URL(baseUrl);
+  const normalized = parseServiceUrl(url, 3002);
+  const parsed = new URL(normalized);
   const secure = parsed.protocol === 'https:';
-  const port = parsed.port ? Number(parsed.port) : secure ? 443 : 80;
-  const pathname = parsed.pathname.replace(/\/+$/, '');
-  const peerPath = pathname || '/peerjs';
+  const local = isLocalHost(parsed.hostname);
+
+  let port = parsed.port ? Number(parsed.port) : secure ? 443 : 80;
+  if (local && !parsed.port && !secure) {
+    port = 3002;
+  }
+  if (secure && !local) {
+    port = 443;
+  }
+
+  // Socket.IO y REST usan solo el origin (no /peerjs)
+  const baseUrl = `${parsed.protocol}//${parsed.host}`;
+
+  // Express monta PeerJS en /peerjs; el cliente debe usar path "/" (no "/peerjs")
+  // para que las peticiones vayan a /peerjs/id y no /peerjs/peerjs/id
+  const peerClientPath = '/';
 
   return {
     baseUrl,
     hostname: parsed.hostname,
     port,
     secure,
-    peerPath,
+    peerClientPath,
   };
 }
 
