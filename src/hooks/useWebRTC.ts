@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Peer, type MediaConnection } from 'peerjs';
 import type { Socket } from 'socket.io-client';
-import { connectWebRtcSocket, disconnectWebRtcSocket, WEBRTC_URL, webrtcApiUrl } from '../lib/webrtcSocket';
+import { connectWebRtcSocket, disconnectWebRtcSocket, parseWebRtcUrl, webrtcApiUrl } from '../lib/webrtcSocket';
 
 export type RemotePeerState = {
   stream: MediaStream;
@@ -159,13 +159,14 @@ export function useWebRTC(
       localStreamRef.current = stream;
       setLocalStream(stream);
 
-      // Create PeerJS instance
+      // Create PeerJS instance (path = mount de Express; PeerJS añade "/peerjs/id" internamente)
+      const { hostname, port, secure, peerPath } = parseWebRtcUrl();
       const peer = new Peer({
-        host: new URL(WEBRTC_URL).hostname,
-        port: Number(new URL(WEBRTC_URL).port) || 3002,
-        path: '/peerjs',
+        host: hostname,
+        port,
+        path: peerPath === '/peerjs' ? '/' : peerPath,
         config: { iceServers },
-        secure: WEBRTC_URL.startsWith('https'),
+        secure,
       });
 
       peerRef.current = peer;

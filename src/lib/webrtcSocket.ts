@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
+import { parseServiceUrl } from './parseServiceUrl';
 
 function resolveWebRtcUrl(): string {
   const explicit = import.meta.env.VITE_WEBRTC_URL;
@@ -10,10 +11,38 @@ function resolveWebRtcUrl(): string {
 
 export const WEBRTC_URL = resolveWebRtcUrl();
 
+export type WebRtcConnectionConfig = {
+  /** Base URL para Socket.IO y fetch (sin path extra). */
+  baseUrl: string;
+  hostname: string;
+  port: number;
+  secure: boolean;
+  /** Path raíz del servidor PeerJS montado en Express (p. ej. "/peerjs"). */
+  peerPath: string;
+};
+
+/** Parsea VITE_WEBRTC_URL para Socket.IO y PeerJS (puerto/path correctos en prod). */
+export function parseWebRtcUrl(url = WEBRTC_URL): WebRtcConnectionConfig {
+  const baseUrl = parseServiceUrl(url, 3002);
+  const parsed = new URL(baseUrl);
+  const secure = parsed.protocol === 'https:';
+  const port = parsed.port ? Number(parsed.port) : secure ? 443 : 80;
+  const pathname = parsed.pathname.replace(/\/+$/, '');
+  const peerPath = pathname || '/peerjs';
+
+  return {
+    baseUrl,
+    hostname: parsed.hostname,
+    port,
+    secure,
+    peerPath,
+  };
+}
+
 /** Une la base del signaling server con un path sin duplicar barras. */
 export function webrtcApiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${WEBRTC_URL}${normalizedPath}`;
+  return `${parseWebRtcUrl().baseUrl}${normalizedPath}`;
 }
 
 let socket: Socket | null = null;
@@ -37,7 +66,8 @@ export function connectWebRtcSocket(token: string): Promise<Socket> {
   currentToken = token;
 
   return new Promise<Socket>((resolve, reject) => {
-    const sock = io(WEBRTC_URL, {
+    const { baseUrl } = parseWebRtcUrl();
+    const sock = io(baseUrl, {
       auth: { token },
       reconnection: true,
       reconnectionAttempts: 10,

@@ -1,12 +1,17 @@
 import { io, type Socket } from 'socket.io-client';
 import type { MensajePublico } from '../services/api';
+import { parseServiceUrl } from './parseServiceUrl';
 
 function resolveSocketUrl(): string {
   const explicit = import.meta.env.VITE_SOCKET_URL;
-  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+  if (typeof explicit === 'string' && explicit.trim()) {
+    return parseServiceUrl(explicit.trim(), 3001);
+  }
   const api = import.meta.env.VITE_API_URL ?? '/api';
-  if (api.startsWith('http')) return api.replace(/\/api\/?$/, '');
-  return 'http://localhost:1206';
+  if (api.startsWith('http')) {
+    return parseServiceUrl(api.replace(/\/api\/?$/, ''), 1206);
+  }
+  return 'http://localhost:3001';
 }
 
 const SOCKET_URL = resolveSocketUrl();

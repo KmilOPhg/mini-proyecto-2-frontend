@@ -1,4 +1,9 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+import { parseServiceUrl } from '../lib/parseServiceUrl';
+
+const rawApiUrl = import.meta.env.VITE_API_URL ?? '/api';
+const API_BASE = rawApiUrl.startsWith('http')
+  ? parseServiceUrl(rawApiUrl, 1206)
+  : rawApiUrl;
 
 type ApiResponse<T> = {
   status: string;
