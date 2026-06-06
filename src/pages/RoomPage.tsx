@@ -262,31 +262,33 @@ function ChatMessage({ msg, isOwn }: { msg: MensajePublico; isOwn: boolean }) {
   const initials = getInitials(msg.username);
 
   return (
-    <div className="flex gap-2.5">
-      <div
-        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-none mt-0.5"
-        style={{ background: avatarColor, color: '#fff' }}
-      >
-        {initials}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-[12.5px] font-semibold" style={{ color: isOwn ? '#A5B4FC' : '#E2E8F0' }}>
-            {msg.username}
-          </span>
-          <span className="text-[11px]" style={{ color: '#475569' }}>
-            {formatMessageTime(msg.createdAt)}
-          </span>
-        </div>
+    <div className={`flex w-full ${isOwn ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex gap-2.5 max-w-[88%] min-w-0 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
         <div
-          className="px-3 py-2 rounded-[12px] text-[13px] leading-relaxed inline-block max-w-full"
-          style={{
-            background: isOwn ? 'rgba(99,102,241,0.15)' : '#1E293B',
-            color: '#E2E8F0',
-            border: isOwn ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(148,163,184,0.1)',
-          }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-none mt-0.5"
+          style={{ background: avatarColor, color: '#fff' }}
         >
-          {msg.texto}
+          {initials}
+        </div>
+        <div className={`flex flex-col min-w-0 ${isOwn ? 'items-end' : 'items-start'}`}>
+          <div className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
+            <span className="text-[12.5px] font-semibold" style={{ color: isOwn ? '#A5B4FC' : '#E2E8F0' }}>
+              {isOwn ? 'Tú' : msg.username}
+            </span>
+            <span className="text-[11px]" style={{ color: '#475569' }}>
+              {formatMessageTime(msg.createdAt)}
+            </span>
+          </div>
+          <div
+            className="px-3 py-2 rounded-[12px] text-[13px] leading-relaxed max-w-full break-words"
+            style={{
+              background: isOwn ? 'rgba(99,102,241,0.15)' : '#1E293B',
+              color: '#E2E8F0',
+              border: isOwn ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(148,163,184,0.1)',
+            }}
+          >
+            {msg.texto}
+          </div>
         </div>
       </div>
     </div>

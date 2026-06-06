@@ -411,25 +411,34 @@ export default function ProfileEditModal({ open, onClose }: Props) {
           </div>
 
           {/* Tabs */}
-          <div className="flex overflow-x-auto" style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
+          <div
+            className="grid grid-cols-2 sm:grid-cols-4"
+            style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}
+          >
             {TABS.map(t => {
               const active = tab === t.key;
               const color = t.danger
                 ? (active ? '#EF4444' : '#F87171')
                 : (active ? '#F8FAFC' : '#64748B');
+              const indicatorColor = t.danger ? '#EF4444' : '#6366F1';
               return (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className="px-3 sm:px-4 py-2.5 text-[13px] font-medium cursor-pointer border-0 transition-colors whitespace-nowrap shrink-0"
+                  className="relative px-2 sm:px-4 py-2.5 text-[12px] sm:text-[13px] font-medium cursor-pointer border-0 transition-colors text-center"
                   style={{
                     background: 'transparent',
                     color,
-                    borderBottom: `2px solid ${active ? (t.danger ? '#EF4444' : '#6366F1') : 'transparent'}`,
-                    marginBottom: -1,
                   }}
                 >
                   {t.label}
+                  {active && (
+                    <span
+                      className="absolute left-2 right-2 sm:left-3 sm:right-3 bottom-0 h-0.5 rounded-full"
+                      style={{ background: indicatorColor }}
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
               );
             })}
