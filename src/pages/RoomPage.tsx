@@ -173,9 +173,11 @@ function VideoTile({ stream, muted }: { stream: MediaStream; muted: boolean }) {
 
   useEffect(() => {
     const el = videoRef.current;
-    if (el && el.srcObject !== stream) {
+    if (!el) return;
+    if (el.srcObject !== stream) {
       el.srcObject = stream;
     }
+    void el.play().catch(() => {});
   }, [stream]);
 
   return (
@@ -387,6 +389,8 @@ export default function RoomPage() {
     { onSalaTerminada: handleSalaTerminada },
   );
 
+  const myUid = user?.id ?? '';
+
   const {
     localStream,
     remoteStreams,
@@ -397,7 +401,7 @@ export default function RoomPage() {
     toggleAudio,
     toggleVideo,
     toggleScreen,
-  } = useWebRTC(salaId, jwtToken ?? null);
+  } = useWebRTC(salaId, jwtToken ?? null, myUid);
 
   useEffect(() => {
     if (webrtcError) toast.error(`WebRTC: ${webrtcError}`);
@@ -406,8 +410,6 @@ export default function RoomPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef(Date.now());
-
-  const myUid = user?.id ?? '';
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

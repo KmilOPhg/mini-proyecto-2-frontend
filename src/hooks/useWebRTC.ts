@@ -43,6 +43,7 @@ async function fetchIceServers(): Promise<IceServerConfig[]> {
 export function useWebRTC(
   salaId: string | undefined,
   jwtToken: string | null,
+  myUid: string,
 ): UseWebRTCReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, RemotePeerState>>(new Map());
@@ -60,6 +61,8 @@ export function useWebRTC(
   // uid → peerId mapping from sala:join ack
   const peerIdToUidRef = useRef<Map<string, string>>(new Map());
   const uidToPeerIdRef = useRef<Map<string, string>>(new Map());
+  const myUidRef = useRef(myUid);
+  myUidRef.current = myUid;
 
   const setRemote = useCallback((uid: string, updater: (prev: RemotePeerState | undefined) => RemotePeerState | null) => {
     setRemoteStreams(prev => {
@@ -74,52 +77,57 @@ export function useWebRTC(
     });
   }, []);
 
-  const handleIncomingCall = useCallback((call: MediaConnection, uid: string) => {
+  const resolveRemoteUid = useCallback((call: MediaConnection): string => {
+    const fromMetadata = (call.metadata as { uid?: string })?.uid;
+    if (fromMetadata) return fromMetadata;
+    return peerIdToUidRef.current.get(call.peer) ?? call.peer;
+  }, []);
+
+  const attachCallHandlers = useCallback((call: MediaConnection, remoteUid: string) => {
+    call.on('stream', (remoteStream: MediaStream) => {
+      setRemote(remoteUid, () => ({
+        stream: remoteStream,
+        audioMuted: false,
+        videoMuted: false,
+        sharingScreen: false,
+      }));
+    });
+
+    call.on('close', () => {
+      if (activeCallsRef.current.get(remoteUid) === call) {
+        activeCallsRef.current.delete(remoteUid);
+        setRemote(remoteUid, () => null);
+      }
+    });
+  }, [setRemote]);
+
+  const handleIncomingCall = useCallback((call: MediaConnection) => {
+    const remoteUid = resolveRemoteUid(call);
+    if (remoteUid === myUidRef.current) return;
+
+    const existing = activeCallsRef.current.get(remoteUid);
+    if (existing) existing.close();
+
     const local = localStreamRef.current;
     call.answer(local ?? undefined);
+    activeCallsRef.current.set(remoteUid, call);
+    attachCallHandlers(call, remoteUid);
+  }, [attachCallHandlers, resolveRemoteUid]);
 
-    call.on('stream', (remoteStream: MediaStream) => {
-      setRemote(uid, () => ({
-        stream: remoteStream,
-        audioMuted: false,
-        videoMuted: false,
-        sharingScreen: false,
-      }));
-    });
-
-    call.on('close', () => {
-      setRemote(uid, () => null);
-      activeCallsRef.current.delete(uid);
-    });
-
-    activeCallsRef.current.set(uid, call);
-  }, [setRemote]);
-
-  const callPeer = useCallback((peerId: string, uid: string) => {
+  const callPeer = useCallback((peerId: string, remoteUid: string) => {
     const peer = peerRef.current;
     const local = localStreamRef.current;
-    if (!peer) return;
+    if (!peer || !remoteUid || remoteUid === myUidRef.current) return;
+    if (activeCallsRef.current.has(remoteUid)) return;
 
     const call = peer.call(peerId, local ?? new MediaStream(), {
-      metadata: { uid },
+      metadata: { uid: myUidRef.current },
     });
+    if (!call) return;
 
-    call.on('stream', (remoteStream: MediaStream) => {
-      setRemote(uid, () => ({
-        stream: remoteStream,
-        audioMuted: false,
-        videoMuted: false,
-        sharingScreen: false,
-      }));
-    });
-
-    call.on('close', () => {
-      setRemote(uid, () => null);
-      activeCallsRef.current.delete(uid);
-    });
-
-    activeCallsRef.current.set(uid, call);
-  }, [setRemote]);
+    activeCallsRef.current.set(remoteUid, call);
+    attachCallHandlers(call, remoteUid);
+  }, [attachCallHandlers]);
 
   useEffect(() => {
     if (!salaId || !jwtToken) return;
@@ -195,11 +203,10 @@ export function useWebRTC(
             }
           );
 
-          // New peer joined → we call them
+          // New peer joined → only register; the joiner calls us from their ack list
           sock.on('peer:joined', (data: { peerId: string; uid: string; nombre: string }) => {
             peerIdToUidRef.current.set(data.peerId, data.uid);
             uidToPeerIdRef.current.set(data.uid, data.peerId);
-            callPeer(data.peerId, data.uid);
           });
 
           // Peer left → clean up
@@ -242,8 +249,7 @@ export function useWebRTC(
 
       // Answer incoming calls
       peer.on('call', (call: MediaConnection) => {
-        const uid = (call.metadata as { uid?: string })?.uid ?? call.peer;
-        handleIncomingCall(call, uid);
+        handleIncomingCall(call);
       });
     }
 
@@ -281,7 +287,7 @@ export function useWebRTC(
       setVideoMuted(false);
       setSharingScreen(false);
     };
-  }, [salaId, jwtToken, callPeer, handleIncomingCall, setRemote]);
+  }, [salaId, jwtToken, myUid, callPeer, handleIncomingCall, setRemote]);
 
   const toggleAudio = useCallback(() => {
     const stream = localStreamRef.current;
