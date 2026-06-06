@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Peer from 'peerjs';
-import type { MediaConnection } from 'peerjs';
+import { Peer, type MediaConnection } from 'peerjs';
 import type { Socket } from 'socket.io-client';
 import { connectWebRtcSocket, disconnectWebRtcSocket, WEBRTC_URL } from '../lib/webrtcSocket';
 
@@ -125,6 +124,7 @@ export function useWebRTC(
   useEffect(() => {
     if (!salaId || !jwtToken) return;
 
+    const token = jwtToken;
     let destroyed = false;
 
     async function init() {
@@ -170,7 +170,7 @@ export function useWebRTC(
         if (destroyed) { peer.destroy(); return; }
 
         try {
-          const sock = await connectWebRtcSocket(jwtToken);
+          const sock = await connectWebRtcSocket(token);
           if (destroyed) { peer.destroy(); return; }
 
           socketRef.current = sock;
@@ -321,7 +321,7 @@ export function useWebRTC(
         for (const call of activeCallsRef.current.values()) {
           const sender = call.peerConnection
             ?.getSenders()
-            .find(s => s.track?.kind === 'video');
+            .find((s: RTCRtpSender) => s.track?.kind === 'video');
           if (sender) await sender.replaceTrack(cameraTrack);
         }
       }
@@ -338,7 +338,7 @@ export function useWebRTC(
         for (const call of activeCallsRef.current.values()) {
           const sender = call.peerConnection
             ?.getSenders()
-            .find(s => s.track?.kind === 'video');
+            .find((s: RTCRtpSender) => s.track?.kind === 'video');
           if (sender) await sender.replaceTrack(screenTrack);
         }
 
@@ -351,7 +351,7 @@ export function useWebRTC(
             for (const call of activeCallsRef.current.values()) {
               const sender = call.peerConnection
                 ?.getSenders()
-                .find(s => s.track?.kind === 'video');
+                .find((s: RTCRtpSender) => s.track?.kind === 'video');
               if (sender) sender.replaceTrack(cameraTrack);
             }
           }
