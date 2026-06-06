@@ -46,26 +46,29 @@ export function connectSocket(token: string): Promise<Socket> {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1500,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      timeout: 20000,
     });
 
-    const onConnect = () => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      sock.disconnect();
+      socket = null;
+      reject(new Error('Tiempo de espera agotado al conectar con el chat en tiempo real'));
+    }, 20000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
       sock.off('connect', onConnect);
-      sock.off('connect_error', onError);
+    };
+
+    const onConnect = () => {
+      cleanup();
       socket = sock;
       resolve(sock);
     };
 
-    const onError = (err: Error) => {
-      sock.off('connect', onConnect);
-      sock.off('connect_error', onError);
-      sock.disconnect();
-      socket = null;
-      reject(err);
-    };
-
     sock.on('connect', onConnect);
-    sock.on('connect_error', onError);
   });
 }
 
