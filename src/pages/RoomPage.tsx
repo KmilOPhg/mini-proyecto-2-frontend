@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { resolveSalaAccess, deleteSala } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
+import { useWebRTC } from '../hooks/useWebRTC';
 import { useAuthStore } from '../store/authStore';
 import {
   salaShareCode, salaRoomPathFromSala, salaShareUrl, isCodigoInvitacion,
@@ -69,8 +70,9 @@ function IconBtn({ children, active, badge, onClick, label, comingSoon }: {
   );
 }
 
-function ControlBtn({ label, children, comingSoon = true }: {
+function ControlBtn({ label, children, comingSoon = true, onClick, active }: {
   label: string; children: React.ReactNode; comingSoon?: boolean;
+  onClick?: () => void; active?: boolean;
 }) {
   if (comingSoon) {
     return (
@@ -84,7 +86,18 @@ function ControlBtn({ label, children, comingSoon = true }: {
       </ComingSoonButton>
     );
   }
-  return null;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className={`${controlBtnClass} cursor-pointer`}
+      style={{ color: active ? '#F87171' : '#CBD5E1' }}
+    >
+      {children}
+      <span className="text-[11px] font-medium leading-none" style={{ color: active ? '#F87171' : '#94A3B8' }}>{label}</span>
+    </button>
+  );
 }
 
 function PanelToggle({ label, active, onClick, children, comingSoon }: {
@@ -155,16 +168,41 @@ function ParticipantAvatar({ usuario, size = 72 }: { usuario: UsuarioEnLinea; si
   );
 }
 
+function VideoTile({ stream, muted }: { stream: MediaStream; muted: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (el && el.srcObject !== stream) {
+      el.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted={muted}
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+  );
+}
+
 function ParticipantTile({
-  usuario, isYou, isHost, compact = false,
+  usuario, isYou, isHost, compact = false, stream, videoMuted, audioMuted,
 }: {
   usuario: UsuarioEnLinea;
   isYou: boolean;
   isHost: boolean;
   compact?: boolean;
+  stream?: MediaStream | null;
+  videoMuted?: boolean;
+  audioMuted?: boolean;
 }) {
   const gradient = participantGradientFromUid(usuario.uid);
   const avatarSize = compact ? 44 : 64;
+  const showVideo = !!stream && !videoMuted;
 
   return (
     <div
@@ -177,19 +215,37 @@ function ParticipantTile({
         boxShadow: isHost ? '0 0 28px rgba(99,102,241,0.35)' : 'none',
       }}
     >
-      {/* Grid texture */}
-      <div
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-        }}
-      />
+      {/* Grid texture — only visible when no video */}
+      {!showVideo && (
+        <div
+          className="absolute inset-0 opacity-20 pointer-events-none"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+      )}
 
-      {/* Avatar */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <ParticipantAvatar usuario={usuario} size={avatarSize} />
-      </div>
+      {/* Video stream */}
+      {stream && <VideoTile stream={stream} muted={isYou} />}
+
+      {/* Avatar fallback when no video */}
+      {!showVideo && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <ParticipantAvatar usuario={usuario} size={avatarSize} />
+        </div>
+      )}
+
+      {/* Mute indicator */}
+      {audioMuted && (
+        <div
+          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(239,68,68,0.85)' }}
+          title="Micrófono silenciado"
+        >
+          <IconMic size={11} strokeWidth={2.5} />
+        </div>
+      )}
 
       {/* Pop-out icon */}
       {!compact && (
@@ -330,6 +386,22 @@ export default function RoomPage() {
     jwtToken ?? null,
     { onSalaTerminada: handleSalaTerminada },
   );
+
+  const {
+    localStream,
+    remoteStreams,
+    audioMuted,
+    videoMuted,
+    sharingScreen,
+    webrtcError,
+    toggleAudio,
+    toggleVideo,
+    toggleScreen,
+  } = useWebRTC(salaId, jwtToken ?? null);
+
+  useEffect(() => {
+    if (webrtcError) toast.error(`WebRTC: ${webrtcError}`);
+  }, [webrtcError]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -608,15 +680,25 @@ export default function RoomPage() {
                   <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
                 </div>
               ) : (
-                participantesEnGrid.map(u => (
-                  <ParticipantTile
-                    key={u.uid}
-                    usuario={u}
-                    isYou={u.uid === myUid}
-                    isHost={u.uid === sala.creadorUid}
-                    compact
-                  />
-                ))
+                participantesEnGrid.map(u => {
+                  const isYou = u.uid === myUid;
+                  const remote = remoteStreams.get(u.uid);
+                  const stream = isYou ? localStream : (remote?.stream ?? null);
+                  const tileAudioMuted = isYou ? audioMuted : (remote?.audioMuted ?? false);
+                  const tileVideoMuted = isYou ? videoMuted : (remote?.videoMuted ?? false);
+                  return (
+                    <ParticipantTile
+                      key={u.uid}
+                      usuario={u}
+                      isYou={isYou}
+                      isHost={u.uid === sala.creadorUid}
+                      compact
+                      stream={stream}
+                      audioMuted={tileAudioMuted}
+                      videoMuted={tileVideoMuted}
+                    />
+                  );
+                })
               )}
             </div>
           </main>
@@ -823,13 +905,13 @@ export default function RoomPage() {
               boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
             }}
           >
-            <ControlBtn label="Mic">
+            <ControlBtn label={audioMuted ? 'Activar Mic' : 'Silenciar'} comingSoon={false} onClick={toggleAudio} active={audioMuted}>
               <IconMic size={20} strokeWidth={1.75} />
             </ControlBtn>
-            <ControlBtn label="Cámara">
+            <ControlBtn label={videoMuted ? 'Activar Cam' : 'Cámara'} comingSoon={false} onClick={toggleVideo} active={videoMuted}>
               <IconVideo size={20} strokeWidth={1.75} />
             </ControlBtn>
-            <ControlBtn label="Pantalla">
+            <ControlBtn label={sharingScreen ? 'Detener' : 'Pantalla'} comingSoon={false} onClick={() => { void toggleScreen(); }} active={sharingScreen}>
               <IconMonitorUp size={20} strokeWidth={1.75} />
             </ControlBtn>
             <ControlBtn label="Más">
