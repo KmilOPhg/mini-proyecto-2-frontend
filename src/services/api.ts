@@ -1,9 +1,14 @@
 import { parseServiceUrl } from '../lib/parseServiceUrl';
 
-const rawApiUrl = import.meta.env.VITE_API_URL ?? '/api';
-const API_BASE = rawApiUrl.startsWith('http')
-  ? parseServiceUrl(rawApiUrl, 1206)
-  : rawApiUrl;
+function resolveApiBase(): string {
+  const raw = import.meta.env.VITE_API_URL ?? '/api';
+  if (!raw.startsWith('http')) return raw;
+
+  const normalized = parseServiceUrl(raw, 1206).replace(/\/+$/, '');
+  return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+}
+
+const API_BASE = resolveApiBase();
 
 type ApiResponse<T> = {
   status: string;
