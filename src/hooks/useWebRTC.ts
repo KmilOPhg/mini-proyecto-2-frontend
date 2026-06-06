@@ -99,13 +99,6 @@ export function useWebRTC(
         setRemote(remoteUid, () => null);
       }
     });
-
-    call.on('error', () => {
-      if (activeCallsRef.current.get(remoteUid) === call) {
-        activeCallsRef.current.delete(remoteUid);
-        setRemote(remoteUid, () => null);
-      }
-    });
   }, [setRemote]);
 
   const handleIncomingCall = useCallback((call: MediaConnection) => {
@@ -127,7 +120,7 @@ export function useWebRTC(
     if (!peer || !remoteUid || remoteUid === myUidRef.current) return;
     if (activeCallsRef.current.has(remoteUid)) return;
 
-    const call = peer.call(peerId, local ?? undefined, {
+    const call = peer.call(peerId, local ?? new MediaStream(), {
       metadata: { uid: myUidRef.current },
     });
     if (!call) return;
