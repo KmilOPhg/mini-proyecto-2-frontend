@@ -388,7 +388,7 @@ export default function RoomPage() {
     setDraft('');
     try {
       const res = await sendMensaje(texto);
-      if (!res.ok) { setDraft(texto); toast.error(res.error); }
+      if (res.ok === false) { setDraft(texto); toast.error(res.error); }
     } finally {
       setSending(false);
       requestAnimationFrame(() => inputRef.current?.focus());
