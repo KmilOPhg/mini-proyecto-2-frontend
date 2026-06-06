@@ -2,11 +2,19 @@ import { io, type Socket } from 'socket.io-client';
 
 function resolveWebRtcUrl(): string {
   const explicit = import.meta.env.VITE_WEBRTC_URL;
-  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+  if (typeof explicit === 'string' && explicit.trim()) {
+    return explicit.trim().replace(/\/+$/, '');
+  }
   return 'http://localhost:3002';
 }
 
 export const WEBRTC_URL = resolveWebRtcUrl();
+
+/** Une la base del signaling server con un path sin duplicar barras. */
+export function webrtcApiUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${WEBRTC_URL}${normalizedPath}`;
+}
 
 let socket: Socket | null = null;
 let currentToken: string | null = null;

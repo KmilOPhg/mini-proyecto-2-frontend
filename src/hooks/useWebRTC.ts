@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Peer, type MediaConnection } from 'peerjs';
 import type { Socket } from 'socket.io-client';
-import { connectWebRtcSocket, disconnectWebRtcSocket, WEBRTC_URL } from '../lib/webrtcSocket';
+import { connectWebRtcSocket, disconnectWebRtcSocket, WEBRTC_URL, webrtcApiUrl } from '../lib/webrtcSocket';
 
 export type RemotePeerState = {
   stream: MediaStream;
@@ -31,7 +31,7 @@ type IceServerConfig = {
 
 async function fetchIceServers(): Promise<IceServerConfig[]> {
   try {
-    const res = await fetch(`${WEBRTC_URL}/ice-servers`);
+    const res = await fetch(webrtcApiUrl('/ice-servers'));
     if (!res.ok) throw new Error('ICE fetch failed');
     const data = await res.json() as { data?: { iceServers?: IceServerConfig[] } };
     return data?.data?.iceServers ?? [{ urls: 'stun:stun.l.google.com:19302' }];
