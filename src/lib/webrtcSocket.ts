@@ -40,8 +40,8 @@ export function parseWebRtcUrl(url = WEBRTC_URL): WebRtcConnectionConfig {
     port = 443;
   }
 
-  // Socket.IO y REST usan solo el origin (no /peerjs)
-  const baseUrl = `${parsed.protocol}//${parsed.host}`;
+  // Socket.IO y REST usan solo el origin (sin path)
+  const baseUrl = parsed.origin;
 
   // Express monta PeerJS en app.use("/peerjs", …); el cliente debe usar path "/peerjs"
   // para que las peticiones vayan a /peerjs/peerjs/id (ruta real del servidor).
@@ -89,26 +89,30 @@ export function connectWebRtcSocket(token: string): Promise<Socket> {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1500,
-      transports: ['websocket', 'polling'],
+      // Polling primero: Render/proxies suelen fallar el upgrade WS inicial (CORS/400)
+      transports: ['polling', 'websocket'],
+      timeout: 20000,
     });
 
-    const onConnect = () => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      sock.disconnect();
+      socket = null;
+      reject(new Error('Tiempo de espera agotado al conectar con el servidor WebRTC'));
+    }, 20000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
       sock.off('connect', onConnect);
-      sock.off('connect_error', onError);
+    };
+
+    const onConnect = () => {
+      cleanup();
       socket = sock;
       resolve(sock);
     };
 
-    const onError = (err: Error) => {
-      sock.off('connect', onConnect);
-      sock.off('connect_error', onError);
-      sock.disconnect();
-      socket = null;
-      reject(err);
-    };
-
     sock.on('connect', onConnect);
-    sock.on('connect_error', onError);
   });
 }
 
