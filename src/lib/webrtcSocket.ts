@@ -43,9 +43,9 @@ export function parseWebRtcUrl(url = WEBRTC_URL): WebRtcConnectionConfig {
   // Socket.IO y REST usan solo el origin (no /peerjs)
   const baseUrl = `${parsed.protocol}//${parsed.host}`;
 
-  // Express monta PeerJS en /peerjs; el cliente debe usar path "/" (no "/peerjs")
-  // para que las peticiones vayan a /peerjs/id y no /peerjs/peerjs/id
-  const peerClientPath = '/';
+  // Express monta PeerJS en app.use("/peerjs", …); el cliente debe usar path "/peerjs"
+  // para que las peticiones vayan a /peerjs/peerjs/id (ruta real del servidor).
+  const peerClientPath = '/peerjs';
 
   return {
     baseUrl,
