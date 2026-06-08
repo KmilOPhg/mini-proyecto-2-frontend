@@ -78,7 +78,11 @@ export function useRoomChat(
         };
 
         onReconnect = () => {
-          if (session === sessionRef.current) joinSalaSocket(salaId);
+          if (session !== sessionRef.current) return;
+          void (async () => {
+            const joinRes = await joinSalaSocket(salaId);
+            if (joinRes.ok) await refreshPresenceSocket();
+          })();
         };
 
         onSalaTerminada = (data: { salaId: string; mensaje?: string }) => {
@@ -134,6 +138,40 @@ export function useRoomChat(
     );
     refreshPresenceSocket().catch(() => {});
   }, [displayName, user?.avatar, user, chatReady, salaId]);
+
+  useEffect(() => {
+    if (!chatReady || !salaId) return;
+
+    const rejoinPresence = () => {
+      if (document.visibilityState !== 'visible') return;
+      void (async () => {
+        const joinRes = await joinSalaSocket(salaId);
+        if (joinRes.ok) await refreshPresenceSocket();
+      })();
+    };
+
+    document.addEventListener('visibilitychange', rejoinPresence);
+    window.addEventListener('pageshow', rejoinPresence);
+    window.addEventListener('focus', rejoinPresence);
+    return () => {
+      document.removeEventListener('visibilitychange', rejoinPresence);
+      window.removeEventListener('pageshow', rejoinPresence);
+      window.removeEventListener('focus', rejoinPresence);
+    };
+  }, [chatReady, salaId]);
+
+  useEffect(() => {
+    if (!chatReady || !salaId) return;
+
+    const heartbeat = window.setInterval(() => {
+      void (async () => {
+        const joinRes = await joinSalaSocket(salaId);
+        if (joinRes.ok) await refreshPresenceSocket();
+      })();
+    }, 20000);
+
+    return () => window.clearInterval(heartbeat);
+  }, [chatReady, salaId]);
 
   const sendMensaje = useCallback(
     async (texto: string) => {

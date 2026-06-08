@@ -3,13 +3,17 @@ import type { MensajePublico } from '../services/api';
 import { parseServiceUrl } from './parseServiceUrl';
 
 function resolveSocketUrl(): string {
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+
   const explicit = import.meta.env.VITE_SOCKET_URL;
   if (typeof explicit === 'string' && explicit.trim()) {
     return parseServiceUrl(explicit.trim(), 3001);
   }
   const api = import.meta.env.VITE_API_URL ?? '/api';
   if (api.startsWith('http')) {
-    return parseServiceUrl(api.replace(/\/api\/?$/, ''), 1206);
+    return parseServiceUrl(api.replace(/\/api\/?$/, ''), 3001);
   }
   return 'http://localhost:3001';
 }
@@ -44,9 +48,9 @@ export function connectSocket(token: string): Promise<Socket> {
     const sock = io(SOCKET_URL, {
       auth: { token },
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1500,
-      transports: ['polling', 'websocket'],
+      transports: import.meta.env.DEV ? ['polling'] : ['polling', 'websocket'],
       timeout: 20000,
     });
 

@@ -1,6 +1,8 @@
 import { parseServiceUrl } from '../lib/parseServiceUrl';
 
 function resolveApiBase(): string {
+  if (import.meta.env.DEV) return '/api';
+
   const raw = import.meta.env.VITE_API_URL ?? '/api';
   if (!raw.startsWith('http')) return raw;
 
