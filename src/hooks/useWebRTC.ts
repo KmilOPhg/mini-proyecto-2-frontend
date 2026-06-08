@@ -111,8 +111,23 @@ export function useWebRTC(
   const uidToPeerIdRef = useRef<Map<string, string>>(new Map());
   const remoteNamesRef = useRef<Map<string, string>>(new Map());
   const streamVersionRef = useRef<Map<string, number>>(new Map());
+  const sharingPeersRef = useRef<Set<string>>(new Set());
   const myUidRef = useRef(myUid);
   myUidRef.current = myUid;
+
+  type AckPeer = {
+    peerId: string;
+    uid: string;
+    nombre?: string;
+    audioMuted?: boolean;
+    videoMuted?: boolean;
+    sharingScreen?: boolean;
+  };
+
+  const isSharingScreen = useCallback((): boolean => {
+    const track = screenStreamRef.current?.getVideoTracks()[0];
+    return track?.readyState === 'live';
+  }, []);
 
   const bumpStreamVersion = useCallback((uid: string): number => {
     const next = (streamVersionRef.current.get(uid) ?? 0) + 1;
@@ -154,7 +169,10 @@ export function useWebRTC(
       stream: remoteStream,
       audioMuted: overrides?.audioMuted ?? prev?.audioMuted ?? false,
       videoMuted: overrides?.videoMuted ?? prev?.videoMuted ?? false,
-      sharingScreen: overrides?.sharingScreen ?? prev?.sharingScreen ?? false,
+      sharingScreen: overrides?.sharingScreen
+        ?? sharingPeersRef.current.has(remoteUid)
+        ?? prev?.sharingScreen
+        ?? false,
       streamVersion: version,
     }));
   }, [bumpStreamVersion, setRemote]);
@@ -235,6 +253,34 @@ export function useWebRTC(
     peerIdToUidRef.current.set(peerId, uid);
     uidToPeerIdRef.current.set(uid, peerId);
   }, []);
+
+  const connectToAckPeers = useCallback((peers: AckPeer[]) => {
+    for (const p of peers) {
+      if (!p.peerId || !p.uid || p.uid === myUidRef.current) continue;
+      registerPeerMapping(p.peerId, p.uid);
+
+      if (p.sharingScreen) {
+        sharingPeersRef.current.add(p.uid);
+        setRemote(p.uid, (prev) => {
+          if (!prev) return null;
+          return { ...prev, sharingScreen: true, videoMuted: false };
+        });
+        continue;
+      }
+
+      window.setTimeout(() => callPeer(p.peerId, p.uid), 300);
+    }
+  }, [callPeer, registerPeerMapping, setRemote]);
+
+  const callRejoinedPeerWithScreen = useCallback((peerId: string, uid: string) => {
+    if (!isSharingScreen()) return;
+    const screenTrack = screenStreamRef.current?.getVideoTracks()[0];
+    if (!screenTrack) return;
+    const outbound = buildOutboundStream(screenTrack, localStreamRef.current);
+    window.setTimeout(() => {
+      callPeer(peerId, uid, { force: true, stream: outbound });
+    }, 500);
+  }, [callPeer, isSharingScreen]);
 
   /** Re-llama a cada peer con el stream saliente (necesario para pantalla compartida en móvil). */
   const recallPeersWithVideo = useCallback(async (
@@ -352,24 +398,20 @@ export function useWebRTC(
           sock.emit(
             'sala:join',
             { salaId, peerId },
-            (ack: { ok: boolean; peers?: Array<{ peerId: string; uid: string; nombre: string; audioMuted: boolean; videoMuted: boolean; sharingScreen: boolean }>; error?: string }) => {
+            (ack: { ok: boolean; peers?: AckPeer[]; error?: string }) => {
               if (!ack.ok) {
                 setWebrtcError(ack.error ?? 'No se pudo unir a la sala WebRTC');
                 return;
               }
               setWebrtcReady(true);
-
-              // Solo quien entra llama a los que ya estaban (evita doble llamada).
-              for (const p of (ack.peers ?? [])) {
-                registerPeerMapping(p.peerId, p.uid);
-                window.setTimeout(() => callPeer(p.peerId, p.uid), 300);
-              }
-            }
+              connectToAckPeers(ack.peers ?? []);
+            },
           );
 
           sock.on('peer:joined', (data: { peerId: string; uid: string; nombre: string }) => {
             registerPeerMapping(data.peerId, data.uid);
             remoteNamesRef.current.set(data.uid, data.nombre);
+            callRejoinedPeerWithScreen(data.peerId, data.uid);
           });
 
           sock.on('peer:left', (data: { peerId: string; uid: string }) => {
@@ -378,6 +420,7 @@ export function useWebRTC(
             activeCallsRef.current.delete(data.uid);
             peerIdToUidRef.current.delete(data.peerId);
             uidToPeerIdRef.current.delete(data.uid);
+            sharingPeersRef.current.delete(data.uid);
             setRemote(data.uid, () => null);
           });
 
@@ -389,6 +432,7 @@ export function useWebRTC(
           });
 
           sock.on('screen:started', (data: { uid: string }) => {
+            sharingPeersRef.current.add(data.uid);
             setRemote(data.uid, (prev) => {
               if (!prev) return null;
               const tracks = prev.stream.getTracks();
@@ -406,6 +450,7 @@ export function useWebRTC(
           });
 
           sock.on('screen:stopped', (data: { uid: string }) => {
+            sharingPeersRef.current.delete(data.uid);
             setRemote(data.uid, prev => {
               if (!prev) return null;
               return { ...prev, sharingScreen: false };
@@ -417,12 +462,9 @@ export function useWebRTC(
             sock.emit(
               'sala:join',
               { salaId, peerId },
-              (ack: { ok: boolean; peers?: Array<{ peerId: string; uid: string }> }) => {
+              (ack: { ok: boolean; peers?: AckPeer[] }) => {
                 if (!ack.ok) return;
-                for (const p of ack.peers ?? []) {
-                  registerPeerMapping(p.peerId, p.uid);
-                  window.setTimeout(() => callPeer(p.peerId, p.uid), 300);
-                }
+                connectToAckPeers(ack.peers ?? []);
               },
             );
           };
@@ -455,6 +497,7 @@ export function useWebRTC(
       activeCallsRef.current.clear();
       peerIdToUidRef.current.clear();
       uidToPeerIdRef.current.clear();
+      sharingPeersRef.current.clear();
 
       peerRef.current?.destroy();
       peerRef.current = null;
@@ -472,7 +515,7 @@ export function useWebRTC(
       setVideoMuted(false);
       setSharingScreen(false);
     };
-  }, [salaId, jwtToken, myUid, callPeer, handleIncomingCall, registerPeerMapping, setRemote]);
+  }, [salaId, jwtToken, myUid, callPeer, handleIncomingCall, registerPeerMapping, setRemote, connectToAckPeers, callRejoinedPeerWithScreen]);
 
   const rejoinWebRtcSala = useCallback(() => {
     const sock = socketRef.current;
@@ -481,15 +524,12 @@ export function useWebRTC(
     sock.emit(
       'sala:join',
       { salaId, peerId: peer.id },
-      (ack: { ok: boolean; peers?: Array<{ peerId: string; uid: string }> }) => {
+      (ack: { ok: boolean; peers?: AckPeer[] }) => {
         if (!ack.ok) return;
-        for (const p of ack.peers ?? []) {
-          registerPeerMapping(p.peerId, p.uid);
-          window.setTimeout(() => callPeer(p.peerId, p.uid), 300);
-        }
+        connectToAckPeers(ack.peers ?? []);
       },
     );
-  }, [salaId, registerPeerMapping, callPeer]);
+  }, [salaId, connectToAckPeers]);
 
   useEffect(() => {
     const resumeMedia = async () => {
