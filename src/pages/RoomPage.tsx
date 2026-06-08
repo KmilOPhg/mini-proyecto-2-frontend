@@ -12,6 +12,7 @@ import {
   getInitials, participantGradientFromUid,
 } from '../utils/sala';
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
+import { getUserDisplayName } from '../utils/userDisplay';
 import ComingSoonButton from '../components/ComingSoonButton';
 import LeaveRoomModal from '../components/LeaveRoomModal';
 import EditRoomModal from '../components/EditRoomModal';
@@ -174,10 +175,57 @@ function VideoTile({ stream, muted }: { stream: MediaStream; muted: boolean }) {
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (el.srcObject !== stream) {
-      el.srcObject = stream;
-    }
-    void el.play().catch(() => {});
+
+    const boundTracks = new Set<MediaStreamTrack>();
+
+    const playLive = () => {
+      if (document.visibilityState !== 'visible' || !stream.active) return;
+      if (el.srcObject !== stream) {
+        el.srcObject = stream;
+      }
+      if (el.paused || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        void el.play().catch(() => {});
+      }
+    };
+
+    const bindTrack = (track: MediaStreamTrack) => {
+      if (boundTracks.has(track)) return;
+      boundTracks.add(track);
+      track.addEventListener('unmute', playLive);
+      track.addEventListener('mute', playLive);
+    };
+
+    const onAddTrack = (event: MediaStreamTrackEvent) => {
+      bindTrack(event.track);
+      playLive();
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        window.requestAnimationFrame(playLive);
+      }
+    };
+
+    stream.getTracks().forEach(bindTrack);
+    stream.addEventListener('addtrack', onAddTrack);
+    stream.addEventListener('removetrack', playLive);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('pageshow', onVisible);
+
+    playLive();
+
+    return () => {
+      stream.removeEventListener('addtrack', onAddTrack);
+      stream.removeEventListener('removetrack', playLive);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      for (const track of boundTracks) {
+        track.removeEventListener('unmute', playLive);
+        track.removeEventListener('mute', playLive);
+      }
+    };
   }, [stream]);
 
   return (
@@ -393,6 +441,7 @@ export default function RoomPage() {
 
   const {
     localStream,
+    screenStream,
     remoteStreams,
     audioMuted,
     videoMuted,
@@ -471,14 +520,28 @@ export default function RoomPage() {
 
   const participantesOrdenados = useMemo(() => {
     if (!sala) return [];
-    return [...usuariosEnLinea].sort((a, b) => {
+    const list: UsuarioEnLinea[] = [...usuariosEnLinea];
+    if (user && !list.some((u) => u.uid === user.id)) {
+      list.push({
+        uid: user.id,
+        nombre: getUserDisplayName(user),
+        avatar: user.avatar ?? null,
+      });
+    }
+    for (const uid of remoteStreams.keys()) {
+      if (!list.some((u) => u.uid === uid)) {
+        const known = usuariosEnLinea.find((u) => u.uid === uid);
+        list.push(known ?? { uid, nombre: 'Participante', avatar: null });
+      }
+    }
+    return list.sort((a, b) => {
       if (a.uid === sala.creadorUid) return -1;
       if (b.uid === sala.creadorUid) return 1;
       if (a.uid === myUid) return -1;
       if (b.uid === myUid) return 1;
       return a.nombre.localeCompare(b.nombre);
     });
-  }, [usuariosEnLinea, sala, myUid]);
+  }, [usuariosEnLinea, remoteStreams, sala, myUid, user]);
 
   const participantesEnGrid = useMemo(
     () => participantesOrdenados.slice(0, 6),
@@ -685,12 +748,17 @@ export default function RoomPage() {
                 participantesEnGrid.map(u => {
                   const isYou = u.uid === myUid;
                   const remote = remoteStreams.get(u.uid);
-                  const stream = isYou ? localStream : (remote?.stream ?? null);
+                  const stream = isYou
+                    ? (sharingScreen && screenStream ? screenStream : localStream)
+                    : (remote?.stream ?? null);
                   const tileAudioMuted = isYou ? audioMuted : (remote?.audioMuted ?? false);
-                  const tileVideoMuted = isYou ? videoMuted : (remote?.videoMuted ?? false);
+                  const tileVideoMuted = isYou
+                    ? (sharingScreen ? false : videoMuted)
+                    : (remote?.sharingScreen ? false : (remote?.videoMuted ?? false));
+                  const streamVersion = remote?.streamVersion ?? 0;
                   return (
                     <ParticipantTile
-                      key={u.uid}
+                      key={`${u.uid}-${streamVersion}`}
                       usuario={u}
                       isYou={isYou}
                       isHost={u.uid === sala.creadorUid}
