@@ -169,7 +169,43 @@ function ParticipantAvatar({ usuario, size = 72 }: { usuario: UsuarioEnLinea; si
   );
 }
 
-function VideoTile({ stream, muted }: { stream: MediaStream; muted: boolean }) {
+type ParticipantGridItem = {
+  uid: string;
+  usuario: UsuarioEnLinea;
+  isYou: boolean;
+  isHost: boolean;
+  stream: MediaStream | null;
+  isScreenShare: boolean;
+  audioMuted: boolean;
+  videoMuted: boolean;
+  streamVersion: number;
+};
+
+function getParticipantGridClasses(count: number): string {
+  if (count <= 1) return 'grid-cols-1';
+  if (count === 2) return 'grid-cols-1 sm:grid-cols-2';
+  if (count === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+  if (count === 4) return 'grid-cols-2';
+  if (count <= 6) return 'grid-cols-2 sm:grid-cols-3';
+  return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4';
+}
+
+function getThumbnailStripClasses(count: number): string {
+  if (count <= 1) return 'grid-cols-1';
+  if (count === 2) return 'grid-cols-2';
+  if (count === 3) return 'grid-cols-3';
+  return 'grid-cols-4 sm:grid-cols-5 lg:grid-cols-6';
+}
+
+function VideoTile({
+  stream,
+  muted,
+  objectFit = 'cover',
+}: {
+  stream: MediaStream;
+  muted: boolean;
+  objectFit?: 'cover' | 'contain';
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -234,13 +270,23 @@ function VideoTile({ stream, muted }: { stream: MediaStream; muted: boolean }) {
       autoPlay
       playsInline
       muted={muted}
-      className="absolute inset-0 w-full h-full object-cover"
+      className={`absolute inset-0 w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'}`}
     />
   );
 }
 
 function ParticipantTile({
-  usuario, isYou, isHost, compact = false, stream, videoMuted, audioMuted,
+  usuario,
+  isYou,
+  isHost,
+  compact = false,
+  stream,
+  videoMuted,
+  audioMuted,
+  isScreenShare = false,
+  objectFit = 'cover',
+  focused = false,
+  onToggleFocus,
 }: {
   usuario: UsuarioEnLinea;
   isYou: boolean;
@@ -249,22 +295,39 @@ function ParticipantTile({
   stream?: MediaStream | null;
   videoMuted?: boolean;
   audioMuted?: boolean;
+  isScreenShare?: boolean;
+  objectFit?: 'cover' | 'contain';
+  focused?: boolean;
+  onToggleFocus?: () => void;
 }) {
   const gradient = participantGradientFromUid(usuario.uid);
   const avatarSize = compact ? 44 : 64;
   const showVideo = !!stream && !videoMuted;
+  const tileBackground = isScreenShare && showVideo ? '#0B1220' : gradient;
 
-  return (
-    <div
-      className={`relative w-full h-full min-h-[72px] rounded-[12px] sm:rounded-[14px] overflow-hidden flex items-end ${compact ? 'p-2' : 'p-3 sm:p-3.5'}`}
-      style={{
-        background: gradient,
-        border: isHost
-          ? '2px solid rgba(129,140,248,0.85)'
-          : '1px solid rgba(148,163,184,0.12)',
-        boxShadow: isHost ? '0 0 28px rgba(99,102,241,0.35)' : 'none',
-      }}
-    >
+  const tileStyle = {
+    background: tileBackground,
+    border: focused && isScreenShare
+      ? '2px solid rgba(52,211,153,0.9)'
+      : isHost
+        ? '2px solid rgba(129,140,248,0.85)'
+        : '1px solid rgba(148,163,184,0.12)',
+    boxShadow: focused && isScreenShare
+      ? '0 0 28px rgba(52,211,153,0.35)'
+      : isHost
+        ? '0 0 28px rgba(99,102,241,0.35)'
+        : 'none',
+  };
+
+  const tileClass = [
+    'relative w-full h-full rounded-[12px] sm:rounded-[14px] overflow-hidden flex items-end',
+    compact ? 'p-2' : 'p-3 sm:p-3.5',
+    isScreenShare && showVideo ? 'min-h-[140px] sm:min-h-0 aspect-video sm:aspect-auto' : 'min-h-[72px]',
+    onToggleFocus ? 'cursor-pointer' : '',
+  ].join(' ');
+
+  const inner = (
+    <>
       {/* Grid texture — only visible when no video */}
       {!showVideo && (
         <div
@@ -277,12 +340,23 @@ function ParticipantTile({
       )}
 
       {/* Video stream */}
-      {stream && <VideoTile stream={stream} muted={isYou} />}
+      {stream && <VideoTile stream={stream} muted={isYou} objectFit={objectFit} />}
 
       {/* Avatar fallback when no video */}
       {!showVideo && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <ParticipantAvatar usuario={usuario} size={avatarSize} />
+        </div>
+      )}
+
+      {/* Screen share badge */}
+      {isScreenShare && showVideo && (
+        <div
+          className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-[6px] pointer-events-none"
+          style={{ background: 'rgba(16,185,129,0.85)', color: '#ECFDF5' }}
+        >
+          <IconMonitorUp size={11} strokeWidth={2.5} />
+          <span className="text-[10px] font-semibold">Pantalla</span>
         </div>
       )}
 
@@ -297,15 +371,15 @@ function ParticipantTile({
         </div>
       )}
 
-      {/* Pop-out icon */}
-      {!compact && (
-      <ComingSoonButton
-        label="Ampliar"
-        className="absolute bottom-2 right-2 w-6 h-6 sm:bottom-2.5 sm:right-2.5 sm:w-7 sm:h-7 rounded-[8px] flex items-center justify-center border-0"
-        style={{ background: 'rgba(0,0,0,0.45)', color: '#CBD5E1' }}
-      >
-        <IconExpand size={13} strokeWidth={2} />
-      </ComingSoonButton>
+      {/* Expand / collapse screen share */}
+      {isScreenShare && onToggleFocus && (
+        <div
+          className="absolute bottom-2 right-2 w-6 h-6 sm:bottom-2.5 sm:right-2.5 sm:w-7 sm:h-7 rounded-[8px] flex items-center justify-center pointer-events-none"
+          style={{ background: 'rgba(0,0,0,0.55)', color: '#CBD5E1' }}
+          title={focused ? 'Reducir pantalla' : 'Ampliar pantalla'}
+        >
+          <IconExpand size={13} strokeWidth={2} />
+        </div>
       )}
 
       {/* Name label */}
@@ -322,6 +396,338 @@ function ParticipantTile({
           )}
         </span>
       </div>
+    </>
+  );
+
+  if (onToggleFocus) {
+    return (
+      <button
+        type="button"
+        aria-label={focused ? 'Reducir pantalla compartida' : 'Ampliar pantalla compartida'}
+        onClick={onToggleFocus}
+        className={`${tileClass} border-0 text-left`}
+        style={tileStyle}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <div className={tileClass} style={tileStyle}>
+      {inner}
+    </div>
+  );
+}
+
+function renderParticipantTile(
+  item: ParticipantGridItem,
+  options: {
+    compact?: boolean;
+    focused?: boolean;
+    onToggleFocus?: () => void;
+  } = {},
+) {
+  const objectFit = item.isScreenShare ? 'contain' : 'cover';
+  return (
+    <ParticipantTile
+      key={`${item.uid}-${item.streamVersion}`}
+      usuario={item.usuario}
+      isYou={item.isYou}
+      isHost={item.isHost}
+      compact={options.compact}
+      stream={item.stream}
+      audioMuted={item.audioMuted}
+      videoMuted={item.videoMuted}
+      isScreenShare={item.isScreenShare}
+      objectFit={objectFit}
+      focused={options.focused}
+      onToggleFocus={options.onToggleFocus}
+    />
+  );
+}
+
+function RoomChatAside({
+  className,
+  onClose,
+  mensajes,
+  chatReady,
+  chatError,
+  myUid,
+  draft,
+  onDraftChange,
+  onSend,
+  sending,
+  inputRef,
+  messagesEndRef,
+}: {
+  className: string;
+  onClose: () => void;
+  mensajes: MensajePublico[];
+  chatReady: boolean;
+  chatError: string | null;
+  myUid: string;
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSend: (e?: React.FormEvent) => void;
+  sending: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <aside
+      className={`flex flex-col min-h-0 ${className}`}
+      style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <div
+        className="flex items-center justify-between px-4 py-3.5 flex-none"
+        style={{ borderBottom: '1px solid rgba(148,163,184,0.1)' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-semibold">Chat</span>
+          <span
+            className="text-[11px] px-2 py-0.5 rounded-full font-bold"
+            style={{ background: 'rgba(99,102,241,0.22)', color: '#A5B4FC' }}
+          >
+            {mensajes.length}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-7 h-7 rounded-[8px] flex items-center justify-center cursor-pointer border-0"
+          style={{ background: 'rgba(148,163,184,0.08)', color: '#64748B' }}
+          aria-label="Cerrar chat"
+        >
+          <IconX size={14} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4" role="log" aria-live="polite" aria-relevant="additions" aria-label="Mensajes del chat">
+        {chatError && (
+          <p role="alert" className="m-0 text-center text-[12px] px-3 py-2 rounded-[10px]" style={{ color: '#F87171', background: 'rgba(127,29,29,0.2)' }}>
+            {chatError}
+          </p>
+        )}
+        {!chatReady && !chatError && (
+          <p className="m-0 text-center text-[13px] py-6" style={{ color: '#64748B' }}>
+            Conectando chat en tiempo real…
+          </p>
+        )}
+        {mensajes.length === 0 && chatReady && (
+          <p className="m-0 text-center text-[13px] py-8" style={{ color: '#475569' }}>
+            Aún no hay mensajes. ¡Sé el primero en escribir!
+          </p>
+        )}
+        {mensajes.map((msg) => (
+          <ChatMessage key={msg.id} msg={msg} isOwn={msg.uid === myUid} />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form
+        onSubmit={onSend}
+        className="flex items-center gap-2 px-3 py-3 flex-none"
+        style={{ borderTop: '1px solid rgba(148,163,184,0.1)' }}
+      >
+        <ComingSoonButton
+          label="Adjuntar"
+          className="w-8 h-8 rounded-full flex items-center justify-center border-0 flex-none"
+          style={{ background: 'rgba(148,163,184,0.1)', color: '#64748B' }}
+        >
+          <IconPlus size={16} />
+        </ComingSoonButton>
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
+          placeholder="Escribe un mensaje..."
+          aria-label="Escribe un mensaje"
+          maxLength={2000}
+          disabled={!chatReady}
+          className="flex-1 px-3.5 py-2.5 rounded-full text-[13px] outline-none"
+          style={{
+            background: '#111827',
+            color: '#F8FAFC',
+            border: '1px solid rgba(148,163,184,0.15)',
+          }}
+        />
+        <button
+          type="submit"
+          disabled={sending || !draft.trim() || !chatReady}
+          aria-label="Enviar mensaje"
+          className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer border-0 flex-none transition-opacity"
+          style={{
+            background: sending || !draft.trim() ? 'rgba(99,102,241,0.35)' : '#6366F1',
+            color: '#fff',
+            opacity: sending || !draft.trim() ? 0.6 : 1,
+          }}
+        >
+          <IconSend size={15} />
+        </button>
+      </form>
+    </aside>
+  );
+}
+
+function ScreenShareFullscreenOverlay({
+  item,
+  onClose,
+  chatOpen,
+  onToggleChat,
+  messageCount,
+}: {
+  item: ParticipantGridItem;
+  onClose: () => void;
+  chatOpen: boolean;
+  onToggleChat: () => void;
+  messageCount: number;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (chatOpen) onToggleChat();
+        else onClose();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose, chatOpen, onToggleChat]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const sharerLabel = item.isYou ? 'Tu pantalla' : item.usuario.nombre;
+  const controlsOffset = 'calc(5.5rem + env(safe-area-inset-bottom, 0px))';
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col"
+      style={{ background: '#000' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Pantalla compartida de ${sharerLabel}`}
+    >
+      <button
+        type="button"
+        className="absolute inset-x-0 top-0 z-0 border-0 cursor-pointer p-0"
+        style={{ background: 'transparent', bottom: controlsOffset }}
+        onClick={onClose}
+        aria-label="Salir de pantalla completa"
+      />
+
+      <div
+        className={`absolute top-0 left-0 z-10 pointer-events-none transition-[right] duration-200 ${chatOpen ? 'right-0 sm:right-[340px]' : 'right-0'}`}
+        style={{ bottom: controlsOffset }}
+      >
+        {item.stream && <VideoTile stream={item.stream} muted={item.isYou} objectFit="contain" />}
+      </div>
+
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between gap-3 px-3 sm:px-5 cf-app-header-pt pb-3 pointer-events-none">
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-[10px] pointer-events-auto"
+          style={{ background: 'rgba(0,0,0,0.72)', color: '#F8FAFC' }}
+        >
+          <IconMonitorUp size={16} strokeWidth={2} />
+          <span className="text-[13px] sm:text-[14px] font-semibold truncate max-w-[50vw] sm:max-w-none">
+            {sharerLabel}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleChat();
+            }}
+            className="relative w-10 h-10 rounded-[10px] flex items-center justify-center cursor-pointer border-0 flex-none"
+            style={{
+              background: chatOpen ? 'rgba(99,102,241,0.85)' : 'rgba(0,0,0,0.72)',
+              color: '#F8FAFC',
+            }}
+            aria-label={chatOpen ? 'Cerrar chat' : 'Abrir chat'}
+          >
+            <IconMessageSquare size={18} />
+            {messageCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
+                style={{ background: '#6366F1', color: '#fff' }}
+              >
+                {messageCount > 9 ? '9+' : messageCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-[10px] flex items-center justify-center cursor-pointer border-0 flex-none"
+            style={{ background: 'rgba(0,0,0,0.72)', color: '#F8FAFC' }}
+            aria-label="Salir de pantalla completa"
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoStage({
+  items,
+  onToggleScreenFocus,
+}: {
+  items: ParticipantGridItem[];
+  onToggleScreenFocus: (uid: string) => void;
+}) {
+  const screenSharers = items.filter((p) => p.isScreenShare && p.stream && !p.videoMuted);
+
+  if (screenSharers.length >= 2) {
+    const cameras = items.filter((p) => !p.isScreenShare || !p.stream || p.videoMuted);
+    const stageGridClass = screenSharers.length === 2
+      ? 'grid-cols-1 sm:grid-cols-2'
+      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+
+    return (
+      <div className="flex flex-col h-full min-h-0 gap-2">
+        <div className={`flex-1 min-h-0 grid gap-2 auto-rows-fr ${stageGridClass}`}>
+          {screenSharers.map((item) => (
+            <div key={`${item.uid}-${item.streamVersion}`} className="min-h-[160px] sm:min-h-0 h-full">
+              {renderParticipantTile(item, {
+                onToggleFocus: () => onToggleScreenFocus(item.uid),
+              })}
+            </div>
+          ))}
+        </div>
+        {cameras.length > 0 && (
+          <div className={`grid gap-2 flex-none h-[72px] sm:h-[88px] min-h-[72px] ${getThumbnailStripClasses(cameras.length)}`}>
+            {cameras.map((item) => (
+              <div key={`${item.uid}-${item.streamVersion}`} className="min-w-0 h-full">
+                {renderParticipantTile(item, { compact: true })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`grid h-full min-h-0 w-full gap-2 sm:gap-2.5 auto-rows-fr ${getParticipantGridClasses(items.length)}`}>
+      {items.map((item) => (
+        <div key={`${item.uid}-${item.streamVersion}`} className="min-h-0 h-full min-w-0">
+          {renderParticipantTile(item, {
+            onToggleFocus: item.isScreenShare && item.stream && !item.videoMuted
+              ? () => onToggleScreenFocus(item.uid)
+              : undefined,
+          })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -420,8 +826,10 @@ export default function RoomPage() {
   const [elapsed, setElapsed] = useState('00:00');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showEditRoomModal, setShowEditRoomModal] = useState(false);
+  const [focusedScreenUid, setFocusedScreenUid] = useState<string | null>(null);
 
   const skipSalaTerminadaRef = useRef(false);
+  const prevScreenSharerCountRef = useRef(0);
 
   usePageTitle(sala?.nombre ? `Sala: ${sala.nombre}` : 'Sala de estudio');
 
@@ -543,9 +951,81 @@ export default function RoomPage() {
     });
   }, [usuariosEnLinea, remoteStreams, sala, myUid, user]);
 
-  const participantesEnGrid = useMemo(
-    () => participantesOrdenados.slice(0, 6),
-    [participantesOrdenados],
+  const gridItems = useMemo((): ParticipantGridItem[] => {
+    if (!sala) return [];
+    return participantesOrdenados.map((u) => {
+      const isYou = u.uid === myUid;
+      const remote = remoteStreams.get(u.uid);
+      const isScreenShare = isYou
+        ? sharingScreen
+        : (remote?.sharingScreen ?? false);
+      const stream = isYou
+        ? (sharingScreen && screenStream ? screenStream : localStream)
+        : (remote?.stream ?? null);
+      return {
+        uid: u.uid,
+        usuario: u,
+        isYou,
+        isHost: u.uid === sala.creadorUid,
+        stream,
+        isScreenShare,
+        audioMuted: isYou ? audioMuted : (remote?.audioMuted ?? false),
+        videoMuted: isYou
+          ? (sharingScreen ? false : videoMuted)
+          : (remote?.sharingScreen ? false : (remote?.videoMuted ?? false)),
+        streamVersion: remote?.streamVersion ?? 0,
+      };
+    });
+  }, [
+    participantesOrdenados,
+    sala,
+    myUid,
+    remoteStreams,
+    sharingScreen,
+    screenStream,
+    localStream,
+    audioMuted,
+    videoMuted,
+  ]);
+
+  const screenSharerUids = useMemo(
+    () => gridItems
+      .filter((p) => p.isScreenShare && p.stream && !p.videoMuted)
+      .map((p) => p.uid),
+    [gridItems],
+  );
+
+  useEffect(() => {
+    const count = screenSharerUids.length;
+    const prev = prevScreenSharerCountRef.current;
+    prevScreenSharerCountRef.current = count;
+
+    if (count === 0) {
+      setFocusedScreenUid(null);
+      return;
+    }
+    if (count === 1 && (prev === 0 || prev >= 2)) {
+      setFocusedScreenUid(screenSharerUids[0]);
+      return;
+    }
+    if (count >= 2 && prev < 2) {
+      setFocusedScreenUid(null);
+      return;
+    }
+    setFocusedScreenUid((current) =>
+      current && screenSharerUids.includes(current) ? current : null,
+    );
+  }, [screenSharerUids]);
+
+  const toggleScreenFocus = useCallback((uid: string) => {
+    setFocusedScreenUid((current) => (current === uid ? null : uid));
+  }, []);
+
+  const focusedScreenItem = useMemo(
+    () => (focusedScreenUid
+      ? gridItems.find((p) => p.uid === focusedScreenUid && p.isScreenShare && p.stream && !p.videoMuted) ?? null
+      : null),
+    [focusedScreenUid, gridItems],
   );
 
   const hostNombre = useMemo(() => {
@@ -735,46 +1215,24 @@ export default function RoomPage() {
         {/* Video + chat (above bottom bar) */}
         <div className="flex flex-1 min-h-0 relative">
           <main className="flex-1 min-w-0 min-h-0 overflow-hidden p-2 sm:p-3">
-            <div className="grid h-full min-h-0 w-full gap-2 sm:gap-2.5 grid-cols-3 grid-rows-2 auto-rows-fr">
-              {!chatReady && participantesOrdenados.length === 0 ? (
-                <div className="col-span-full row-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
-                  <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
-                </div>
-              ) : participantesOrdenados.length === 0 ? (
-                <div className="col-span-full row-span-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
-                  <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
-                </div>
-              ) : (
-                participantesEnGrid.map(u => {
-                  const isYou = u.uid === myUid;
-                  const remote = remoteStreams.get(u.uid);
-                  const stream = isYou
-                    ? (sharingScreen && screenStream ? screenStream : localStream)
-                    : (remote?.stream ?? null);
-                  const tileAudioMuted = isYou ? audioMuted : (remote?.audioMuted ?? false);
-                  const tileVideoMuted = isYou
-                    ? (sharingScreen ? false : videoMuted)
-                    : (remote?.sharingScreen ? false : (remote?.videoMuted ?? false));
-                  const streamVersion = remote?.streamVersion ?? 0;
-                  return (
-                    <ParticipantTile
-                      key={`${u.uid}-${streamVersion}`}
-                      usuario={u}
-                      isYou={isYou}
-                      isHost={u.uid === sala.creadorUid}
-                      compact
-                      stream={stream}
-                      audioMuted={tileAudioMuted}
-                      videoMuted={tileVideoMuted}
-                    />
-                  );
-                })
-              )}
-            </div>
+            {!chatReady && participantesOrdenados.length === 0 ? (
+              <div className="h-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Conectando participantes…</p>
+              </div>
+            ) : participantesOrdenados.length === 0 ? (
+              <div className="h-full flex items-center justify-center rounded-[16px] py-16 sm:py-20" style={{ background: 'rgba(148,163,184,0.04)', border: '1px dashed rgba(148,163,184,0.15)' }}>
+                <p className="m-0 text-[13px]" style={{ color: '#64748B' }}>Esperando participantes…</p>
+              </div>
+            ) : (
+              <VideoStage
+                items={gridItems}
+                onToggleScreenFocus={toggleScreenFocus}
+              />
+            )}
           </main>
 
           {/* ── Right panel: chat or participants (mutually exclusive) ── */}
-          {rightPanelOpen && (
+          {rightPanelOpen && !focusedScreenItem && (
             <>
               <button
                 type="button"
@@ -829,102 +1287,20 @@ export default function RoomPage() {
                   </div>
                 </aside>
               ) : (
-            <aside
-              className="fixed inset-y-0 right-0 z-40 w-full max-w-[min(100vw,340px)] flex flex-col min-h-0 lg:static lg:z-auto lg:w-[340px] lg:max-w-none lg:flex-none"
-              style={{ background: '#0D1526', borderLeft: '1px solid rgba(148,163,184,0.1)' }}
-            >
-            {/* Chat header */}
-            <div
-              className="flex items-center justify-between px-4 py-3.5 flex-none"
-              style={{ borderBottom: '1px solid rgba(148,163,184,0.1)' }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[14px] font-semibold">Chat</span>
-                <span
-                  className="text-[11px] px-2 py-0.5 rounded-full font-bold"
-                  style={{ background: 'rgba(99,102,241,0.22)', color: '#A5B4FC' }}
-                >
-                  {mensajes.length}
-                </span>
-              </div>
-              <button
-                onClick={closeRightPanel}
-                className="w-7 h-7 rounded-[8px] flex items-center justify-center cursor-pointer border-0"
-                style={{ background: 'rgba(148,163,184,0.08)', color: '#64748B' }}
-                aria-label="Cerrar chat"
-              >
-                <IconX size={14} />
-              </button>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4" role="log" aria-live="polite" aria-relevant="additions" aria-label="Mensajes del chat">
-              {chatError && (
-                <p role="alert" className="m-0 text-center text-[12px] px-3 py-2 rounded-[10px]" style={{ color: '#F87171', background: 'rgba(127,29,29,0.2)' }}>
-                  {chatError}
-                </p>
-              )}
-              {!chatReady && !chatError && (
-                <p className="m-0 text-center text-[13px] py-6" style={{ color: '#64748B' }}>
-                  Conectando chat en tiempo real…
-                </p>
-              )}
-              {mensajes.length === 0 && chatReady && (
-                <p className="m-0 text-center text-[13px] py-8" style={{ color: '#475569' }}>
-                  Aún no hay mensajes. ¡Sé el primero en escribir!
-                </p>
-              )}
-              {mensajes.map(msg => (
-                <ChatMessage key={msg.id} msg={msg} isOwn={msg.uid === myUid} />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Chat input */}
-            <form
-              onSubmit={handleSend}
-              className="flex items-center gap-2 px-3 py-3 flex-none"
-              style={{ borderTop: '1px solid rgba(148,163,184,0.1)' }}
-            >
-              <ComingSoonButton
-                label="Adjuntar"
-                className="w-8 h-8 rounded-full flex items-center justify-center border-0 flex-none"
-                style={{ background: 'rgba(148,163,184,0.1)', color: '#64748B' }}
-              >
-                <IconPlus size={16} />
-              </ComingSoonButton>
-              <input
-                ref={inputRef}
-                type="text"
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                placeholder="Escribe un mensaje..."
-                aria-label="Escribe un mensaje"
-                maxLength={2000}
-                disabled={!chatReady}
-                autoFocus
-                className="flex-1 px-3.5 py-2.5 rounded-full text-[13px] outline-none"
-                style={{
-                  background: '#111827',
-                  color: '#F8FAFC',
-                  border: '1px solid rgba(148,163,184,0.15)',
-                }}
-              />
-              <button
-                type="submit"
-                disabled={sending || !draft.trim() || !chatReady}
-                aria-label="Enviar mensaje"
-                className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer border-0 flex-none transition-opacity"
-                style={{
-                  background: sending || !draft.trim() ? 'rgba(99,102,241,0.35)' : '#6366F1',
-                  color: '#fff',
-                  opacity: sending || !draft.trim() ? 0.6 : 1,
-                }}
-              >
-                <IconSend size={15} />
-              </button>
-            </form>
-          </aside>
+                <RoomChatAside
+                  className="fixed inset-y-0 right-0 z-40 w-full max-w-[min(100vw,340px)] lg:static lg:z-auto lg:w-[340px] lg:max-w-none lg:flex-none"
+                  onClose={closeRightPanel}
+                  mensajes={mensajes}
+                  chatReady={chatReady}
+                  chatError={chatError}
+                  myUid={myUid}
+                  draft={draft}
+                  onDraftChange={setDraft}
+                  onSend={handleSend}
+                  sending={sending}
+                  inputRef={inputRef}
+                  messagesEndRef={messagesEndRef}
+                />
               )}
             </>
           )}
@@ -932,10 +1308,11 @@ export default function RoomPage() {
 
         {/* Bottom bar — full width under video and chat */}
         <footer
-          className="flex flex-col items-center gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] flex-none sm:items-center px-3 sm:px-5 py-2.5 sm:py-3 pb-safe"
+          className={`flex flex-col items-center gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] flex-none sm:items-center px-3 sm:px-5 py-2.5 sm:py-3 pb-safe ${focusedScreenItem ? 'fixed bottom-0 left-0 right-0 z-[105]' : ''}`}
           style={{
-            background: '#080E1A',
+            background: focusedScreenItem ? 'rgba(8,14,26,0.96)' : '#080E1A',
             borderTop: '1px solid rgba(148,163,184,0.08)',
+            backdropFilter: focusedScreenItem ? 'blur(8px)' : undefined,
           }}
         >
           <div className="hidden sm:flex items-center gap-2.5 min-w-0 justify-self-start w-full">
@@ -1038,6 +1415,34 @@ export default function RoomPage() {
           sala={sala}
           onUpdated={handleRoomUpdated}
         />
+      )}
+
+      {focusedScreenItem && (
+        <>
+          <ScreenShareFullscreenOverlay
+            item={focusedScreenItem}
+            onClose={() => setFocusedScreenUid(null)}
+            chatOpen={chatOpen}
+            onToggleChat={toggleChat}
+            messageCount={mensajes.length}
+          />
+          {chatOpen && (
+            <RoomChatAside
+              className="fixed inset-y-0 right-0 z-[110] w-full max-w-[min(100vw,340px)]"
+              onClose={toggleChat}
+              mensajes={mensajes}
+              chatReady={chatReady}
+              chatError={chatError}
+              myUid={myUid}
+              draft={draft}
+              onDraftChange={setDraft}
+              onSend={handleSend}
+              sending={sending}
+              inputRef={inputRef}
+              messagesEndRef={messagesEndRef}
+            />
+          )}
+        </>
       )}
     </div>
   );
