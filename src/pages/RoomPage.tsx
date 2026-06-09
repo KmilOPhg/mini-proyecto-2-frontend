@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { resolveSalaAccess, deleteSala } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
+import { useSpeakingDetection } from '../hooks/useSpeakingDetection';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -13,6 +14,7 @@ import {
 } from '../utils/sala';
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
 import { getUserDisplayName } from '../utils/userDisplay';
+import { roomSounds } from '../utils/roomSounds';
 import ComingSoonButton from '../components/ComingSoonButton';
 import LeaveRoomModal from '../components/LeaveRoomModal';
 import EditRoomModal from '../components/EditRoomModal';
@@ -286,6 +288,7 @@ function ParticipantTile({
   isScreenShare = false,
   objectFit = 'cover',
   focused = false,
+  isSpeaking = false,
   onToggleFocus,
 }: {
   usuario: UsuarioEnLinea;
@@ -298,6 +301,7 @@ function ParticipantTile({
   isScreenShare?: boolean;
   objectFit?: 'cover' | 'contain';
   focused?: boolean;
+  isSpeaking?: boolean;
   onToggleFocus?: () => void;
 }) {
   const gradient = participantGradientFromUid(usuario.uid);
@@ -307,16 +311,21 @@ function ParticipantTile({
 
   const tileStyle = {
     background: tileBackground,
-    border: focused && isScreenShare
-      ? '2px solid rgba(52,211,153,0.9)'
-      : isHost
-        ? '2px solid rgba(129,140,248,0.85)'
-        : '1px solid rgba(148,163,184,0.12)',
-    boxShadow: focused && isScreenShare
-      ? '0 0 28px rgba(52,211,153,0.35)'
-      : isHost
-        ? '0 0 28px rgba(99,102,241,0.35)'
-        : 'none',
+    border: isSpeaking
+      ? '2px solid rgba(35,165,89,0.95)'
+      : focused && isScreenShare
+        ? '2px solid rgba(52,211,153,0.9)'
+        : isHost
+          ? '2px solid rgba(129,140,248,0.85)'
+          : '1px solid rgba(148,163,184,0.12)',
+    boxShadow: isSpeaking
+      ? '0 0 0 3px rgba(35,165,89,0.35), 0 0 24px rgba(35,165,89,0.45)'
+      : focused && isScreenShare
+        ? '0 0 28px rgba(52,211,153,0.35)'
+        : isHost
+          ? '0 0 28px rgba(99,102,241,0.35)'
+          : 'none',
+    transition: 'border 0.15s ease, box-shadow 0.15s ease',
   };
 
   const tileClass = [
@@ -425,6 +434,7 @@ function renderParticipantTile(
   options: {
     compact?: boolean;
     focused?: boolean;
+    isSpeaking?: boolean;
     onToggleFocus?: () => void;
   } = {},
 ) {
@@ -442,6 +452,7 @@ function renderParticipantTile(
       isScreenShare={item.isScreenShare}
       objectFit={objectFit}
       focused={options.focused}
+      isSpeaking={options.isSpeaking}
       onToggleFocus={options.onToggleFocus}
     />
   );
@@ -680,9 +691,11 @@ function ScreenShareFullscreenOverlay({
 
 function VideoStage({
   items,
+  speakingUids,
   onToggleScreenFocus,
 }: {
   items: ParticipantGridItem[];
+  speakingUids: ReadonlySet<string>;
   onToggleScreenFocus: (uid: string) => void;
 }) {
   const screenSharers = items.filter((p) => p.isScreenShare && p.stream && !p.videoMuted);
@@ -699,6 +712,7 @@ function VideoStage({
           {screenSharers.map((item) => (
             <div key={`${item.uid}-${item.streamVersion}`} className="min-h-[160px] sm:min-h-0 h-full">
               {renderParticipantTile(item, {
+                isSpeaking: speakingUids.has(item.uid),
                 onToggleFocus: () => onToggleScreenFocus(item.uid),
               })}
             </div>
@@ -708,7 +722,10 @@ function VideoStage({
           <div className={`grid gap-2 flex-none h-[72px] sm:h-[88px] min-h-[72px] ${getThumbnailStripClasses(cameras.length)}`}>
             {cameras.map((item) => (
               <div key={`${item.uid}-${item.streamVersion}`} className="min-w-0 h-full">
-                {renderParticipantTile(item, { compact: true })}
+                {renderParticipantTile(item, {
+                  compact: true,
+                  isSpeaking: speakingUids.has(item.uid),
+                })}
               </div>
             ))}
           </div>
@@ -722,6 +739,7 @@ function VideoStage({
       {items.map((item) => (
         <div key={`${item.uid}-${item.streamVersion}`} className="min-h-0 h-full min-w-0">
           {renderParticipantTile(item, {
+            isSpeaking: speakingUids.has(item.uid),
             onToggleFocus: item.isScreenShare && item.stream && !item.videoMuted
               ? () => onToggleScreenFocus(item.uid)
               : undefined,
@@ -830,6 +848,14 @@ export default function RoomPage() {
 
   const skipSalaTerminadaRef = useRef(false);
   const prevScreenSharerCountRef = useRef(0);
+  const roomSoundsReadyRef = useRef(false);
+  const prevParticipantUidsRef = useRef<string[]>([]);
+  const prevAudioMutedRef = useRef(false);
+  const prevVideoMutedRef = useRef(false);
+  const prevRemoteMediaRef = useRef<Map<string, { audioMuted: boolean; videoMuted: boolean }>>(new Map());
+  const prevScreenSharersRef = useRef<Set<string>>(new Set());
+  const prevMensajesCountRef = useRef(0);
+  const chatHistoryLoadedRef = useRef(false);
 
   usePageTitle(sala?.nombre ? `Sala: ${sala.nombre}` : 'Sala de estudio');
 
@@ -994,6 +1020,110 @@ export default function RoomPage() {
       .map((p) => p.uid),
     [gridItems],
   );
+
+  const speakingSources = useMemo(
+    () => gridItems.map((item) => ({
+      uid: item.uid,
+      stream: item.isYou ? localStream : item.stream,
+      audioMuted: item.audioMuted,
+    })),
+    [gridItems, localStream],
+  );
+
+  const speakingUids = useSpeakingDetection(speakingSources);
+
+  useEffect(() => {
+    roomSoundsReadyRef.current = false;
+    prevParticipantUidsRef.current = [];
+    prevAudioMutedRef.current = false;
+    prevVideoMutedRef.current = false;
+    prevRemoteMediaRef.current = new Map();
+    prevScreenSharersRef.current = new Set();
+    prevMensajesCountRef.current = 0;
+    chatHistoryLoadedRef.current = false;
+  }, [salaId]);
+
+  useEffect(() => {
+    if (!chatReady) return;
+    const timer = window.setTimeout(() => { roomSoundsReadyRef.current = true; }, 800);
+    return () => window.clearTimeout(timer);
+  }, [chatReady]);
+
+  useEffect(() => {
+    const uids = usuariosEnLinea.map((u) => u.uid);
+    const prev = prevParticipantUidsRef.current;
+    if (!roomSoundsReadyRef.current) {
+      prevParticipantUidsRef.current = uids;
+      return;
+    }
+    const joined = uids.filter((id) => !prev.includes(id) && id !== myUid);
+    const left = prev.filter((id) => !uids.includes(id) && id !== myUid);
+    joined.forEach(() => roomSounds.userJoined());
+    left.forEach(() => roomSounds.userLeft());
+    prevParticipantUidsRef.current = uids;
+  }, [usuariosEnLinea, myUid]);
+
+  useEffect(() => {
+    if (!roomSoundsReadyRef.current) {
+      prevAudioMutedRef.current = audioMuted;
+      prevVideoMutedRef.current = videoMuted;
+      return;
+    }
+    if (audioMuted && !prevAudioMutedRef.current) roomSounds.mediaMuted();
+    if (videoMuted && !prevVideoMutedRef.current) roomSounds.mediaMuted();
+    prevAudioMutedRef.current = audioMuted;
+    prevVideoMutedRef.current = videoMuted;
+  }, [audioMuted, videoMuted]);
+
+  useEffect(() => {
+    if (!roomSoundsReadyRef.current) {
+      const map = new Map<string, { audioMuted: boolean; videoMuted: boolean }>();
+      remoteStreams.forEach((state, uid) => {
+        map.set(uid, { audioMuted: state.audioMuted, videoMuted: state.videoMuted });
+      });
+      prevRemoteMediaRef.current = map;
+      return;
+    }
+    remoteStreams.forEach((state, uid) => {
+      const prev = prevRemoteMediaRef.current.get(uid);
+      if (!prev) return;
+      if (state.audioMuted && !prev.audioMuted) roomSounds.mediaMuted();
+      if (state.videoMuted && !prev.videoMuted) roomSounds.mediaMuted();
+    });
+    const map = new Map<string, { audioMuted: boolean; videoMuted: boolean }>();
+    remoteStreams.forEach((state, uid) => {
+      map.set(uid, { audioMuted: state.audioMuted, videoMuted: state.videoMuted });
+    });
+    prevRemoteMediaRef.current = map;
+  }, [remoteStreams]);
+
+  useEffect(() => {
+    const current = new Set(screenSharerUids);
+    if (!roomSoundsReadyRef.current) {
+      prevScreenSharersRef.current = current;
+      return;
+    }
+    for (const uid of current) {
+      if (!prevScreenSharersRef.current.has(uid)) {
+        roomSounds.screenShare();
+      }
+    }
+    prevScreenSharersRef.current = current;
+  }, [screenSharerUids]);
+
+  useEffect(() => {
+    if (!chatReady) return;
+    const count = mensajes.length;
+    if (!chatHistoryLoadedRef.current) {
+      chatHistoryLoadedRef.current = true;
+      prevMensajesCountRef.current = count;
+      return;
+    }
+    if (count > prevMensajesCountRef.current) {
+      roomSounds.messageSent();
+    }
+    prevMensajesCountRef.current = count;
+  }, [mensajes, chatReady]);
 
   useEffect(() => {
     const count = screenSharerUids.length;
@@ -1226,6 +1356,7 @@ export default function RoomPage() {
             ) : (
               <VideoStage
                 items={gridItems}
+                speakingUids={speakingUids}
                 onToggleScreenFocus={toggleScreenFocus}
               />
             )}
