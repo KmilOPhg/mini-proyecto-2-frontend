@@ -14,7 +14,7 @@ import {
 } from '../utils/sala';
 import type { UsuarioEnLinea } from '../hooks/useRoomChat';
 import { getUserDisplayName } from '../utils/userDisplay';
-import { roomSounds } from '../utils/roomSounds';
+import { preloadRoomSounds, roomSounds } from '../utils/roomSounds';
 import ComingSoonButton from '../components/ComingSoonButton';
 import LeaveRoomModal from '../components/LeaveRoomModal';
 import EditRoomModal from '../components/EditRoomModal';
@@ -1045,6 +1045,7 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (!chatReady) return;
+    preloadRoomSounds();
     const timer = window.setTimeout(() => { roomSoundsReadyRef.current = true; }, 800);
     return () => window.clearTimeout(timer);
   }, [chatReady]);
@@ -1070,7 +1071,9 @@ export default function RoomPage() {
       return;
     }
     if (audioMuted && !prevAudioMutedRef.current) roomSounds.mediaMuted();
+    if (!audioMuted && prevAudioMutedRef.current) roomSounds.mediaUnmuted();
     if (videoMuted && !prevVideoMutedRef.current) roomSounds.mediaMuted();
+    if (!videoMuted && prevVideoMutedRef.current) roomSounds.mediaUnmuted();
     prevAudioMutedRef.current = audioMuted;
     prevVideoMutedRef.current = videoMuted;
   }, [audioMuted, videoMuted]);
@@ -1088,7 +1091,9 @@ export default function RoomPage() {
       const prev = prevRemoteMediaRef.current.get(uid);
       if (!prev) return;
       if (state.audioMuted && !prev.audioMuted) roomSounds.mediaMuted();
+      if (!state.audioMuted && prev.audioMuted) roomSounds.mediaUnmuted();
       if (state.videoMuted && !prev.videoMuted) roomSounds.mediaMuted();
+      if (!state.videoMuted && prev.videoMuted) roomSounds.mediaUnmuted();
     });
     const map = new Map<string, { audioMuted: boolean; videoMuted: boolean }>();
     remoteStreams.forEach((state, uid) => {
