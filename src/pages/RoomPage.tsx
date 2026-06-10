@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { resolveSalaAccess, deleteSala } from '../services/api';
 import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
+import { useParticipantVolumes } from '../hooks/useParticipantVolumes';
 import { useSpeakingDetection } from '../hooks/useSpeakingDetection';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useAuthStore } from '../store/authStore';
@@ -22,7 +23,8 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import {
   IconArrowLeft, IconClock, IconExpand, IconLayoutGrid, IconLink,
   IconMessageSquare, IconMic, IconMonitorUp, IconMoreHorizontal,
-  IconPhoneHangup, IconPlus, IconSend, IconSettings, IconUsers, IconVideo, IconX,
+  IconPhoneHangup, IconPlus, IconSend, IconSettings, IconUsers, IconVideo, IconVolume,
+  IconVolumeX, IconX,
 } from '../components/room/RoomIcons';
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
@@ -202,13 +204,21 @@ function getThumbnailStripClasses(count: number): string {
 function VideoTile({
   stream,
   muted,
+  volume = 1,
   objectFit = 'cover',
 }: {
   stream: MediaStream;
   muted: boolean;
+  volume?: number;
   objectFit?: 'cover' | 'contain';
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.volume = muted ? 0 : Math.min(1, Math.max(0, volume));
+  }, [muted, volume]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -221,6 +231,7 @@ function VideoTile({
       if (el.srcObject !== stream) {
         el.srcObject = stream;
       }
+      el.volume = muted ? 0 : Math.min(1, Math.max(0, volume));
       if (el.paused || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         void el.play().catch(() => {});
       }
@@ -264,7 +275,7 @@ function VideoTile({
         track.removeEventListener('mute', playLive);
       }
     };
-  }, [stream]);
+  }, [stream, muted, volume]);
 
   return (
     <video
@@ -289,6 +300,7 @@ function ParticipantTile({
   objectFit = 'cover',
   focused = false,
   isSpeaking = false,
+  volume = 1,
   onToggleFocus,
 }: {
   usuario: UsuarioEnLinea;
@@ -302,6 +314,7 @@ function ParticipantTile({
   objectFit?: 'cover' | 'contain';
   focused?: boolean;
   isSpeaking?: boolean;
+  volume?: number;
   onToggleFocus?: () => void;
 }) {
   const gradient = participantGradientFromUid(usuario.uid);
@@ -349,7 +362,14 @@ function ParticipantTile({
       )}
 
       {/* Video stream */}
-      {stream && <VideoTile stream={stream} muted={isYou} objectFit={objectFit} />}
+      {stream && (
+        <VideoTile
+          stream={stream}
+          muted={isYou}
+          volume={isYou ? 1 : volume}
+          objectFit={objectFit}
+        />
+      )}
 
       {/* Avatar fallback when no video */}
       {!showVideo && (
@@ -435,6 +455,7 @@ function renderParticipantTile(
     compact?: boolean;
     focused?: boolean;
     isSpeaking?: boolean;
+    volume?: number;
     onToggleFocus?: () => void;
   } = {},
 ) {
@@ -453,6 +474,7 @@ function renderParticipantTile(
       objectFit={objectFit}
       focused={options.focused}
       isSpeaking={options.isSpeaking}
+      volume={options.volume}
       onToggleFocus={options.onToggleFocus}
     />
   );
@@ -637,7 +659,7 @@ function ScreenShareFullscreenOverlay({
         className={`absolute top-0 left-0 z-10 pointer-events-none transition-[right] duration-200 ${chatOpen ? 'right-0 sm:right-[340px]' : 'right-0'}`}
         style={{ bottom: controlsOffset }}
       >
-        {item.stream && <VideoTile stream={item.stream} muted={item.isYou} objectFit="contain" />}
+        {item.stream && <VideoTile stream={item.stream} muted objectFit="contain" />}
       </div>
 
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between gap-3 px-3 sm:px-5 cf-app-header-pt pb-3 pointer-events-none">
@@ -692,10 +714,12 @@ function ScreenShareFullscreenOverlay({
 function VideoStage({
   items,
   speakingUids,
+  getVolume,
   onToggleScreenFocus,
 }: {
   items: ParticipantGridItem[];
   speakingUids: ReadonlySet<string>;
+  getVolume: (uid: string) => number;
   onToggleScreenFocus: (uid: string) => void;
 }) {
   const screenSharers = items.filter((p) => p.isScreenShare && p.stream && !p.videoMuted);
@@ -713,6 +737,7 @@ function VideoStage({
             <div key={`${item.uid}-${item.streamVersion}`} className="min-h-[160px] sm:min-h-0 h-full">
               {renderParticipantTile(item, {
                 isSpeaking: speakingUids.has(item.uid),
+                volume: getVolume(item.uid),
                 onToggleFocus: () => onToggleScreenFocus(item.uid),
               })}
             </div>
@@ -725,6 +750,7 @@ function VideoStage({
                 {renderParticipantTile(item, {
                   compact: true,
                   isSpeaking: speakingUids.has(item.uid),
+                  volume: getVolume(item.uid),
                 })}
               </div>
             ))}
@@ -740,6 +766,7 @@ function VideoStage({
         <div key={`${item.uid}-${item.streamVersion}`} className="min-h-0 h-full min-w-0">
           {renderParticipantTile(item, {
             isSpeaking: speakingUids.has(item.uid),
+            volume: getVolume(item.uid),
             onToggleFocus: item.isScreenShare && item.stream && !item.videoMuted
               ? () => onToggleScreenFocus(item.uid)
               : undefined,
@@ -751,38 +778,74 @@ function VideoStage({
 }
 
 function ParticipantSidebarRow({
-  usuario, isYou, isHost,
+  usuario, isYou, isHost, volume, onVolumeChange,
 }: {
   usuario: UsuarioEnLinea;
   isYou: boolean;
   isHost: boolean;
+  volume?: number;
+  onVolumeChange?: (volume: number) => void;
 }) {
   const label = isYou ? 'Tú' : isHost ? 'Host' : usuario.nombre;
+  const showVolume = !isYou && volume != null && onVolumeChange != null;
+  const volumePercent = Math.round((volume ?? 1) * 100);
+  const isSilent = showVolume && volumePercent === 0;
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 rounded-[10px]"
+      className="flex flex-col gap-2 px-3 py-2.5 rounded-[10px]"
       style={{
         background: 'rgba(148,163,184,0.06)',
         border: isHost ? '1px solid rgba(129,140,248,0.35)' : '1px solid rgba(148,163,184,0.1)',
       }}
     >
-      <ParticipantAvatar usuario={usuario} size={36} />
-      <div className="min-w-0 flex-1">
-        <p className="m-0 text-[13px] font-medium truncate" style={{ color: '#F8FAFC' }}>
-          {label}
-          {isHost && isYou && (
-            <span className="ml-1.5 text-[10px] font-bold tracking-wide" style={{ color: '#A5B4FC' }}>
-              HOST
-            </span>
-          )}
-        </p>
-        {isHost && !isYou && (
-          <p className="m-0 mt-0.5 text-[11px] font-semibold tracking-wide" style={{ color: '#A5B4FC' }}>
-            HOST
+      <div className="flex items-center gap-3 min-w-0">
+        <ParticipantAvatar usuario={usuario} size={36} />
+        <div className="min-w-0 flex-1">
+          <p className="m-0 text-[13px] font-medium truncate" style={{ color: '#F8FAFC' }}>
+            {label}
+            {isHost && isYou && (
+              <span className="ml-1.5 text-[10px] font-bold tracking-wide" style={{ color: '#A5B4FC' }}>
+                HOST
+              </span>
+            )}
           </p>
+          {isHost && !isYou && (
+            <p className="m-0 mt-0.5 text-[11px] font-semibold tracking-wide" style={{ color: '#A5B4FC' }}>
+              HOST
+            </p>
+          )}
+        </div>
+        {showVolume && (
+          <span style={{ color: isSilent ? '#F87171' : '#64748B' }} aria-hidden="true">
+            {isSilent ? <IconVolumeX size={14} /> : <IconVolume size={14} />}
+          </span>
         )}
       </div>
+      {showVolume && (
+        <div className="flex items-center gap-2 pl-[48px]">
+          <label className="cf-sr-only" htmlFor={`volume-${usuario.uid}`}>
+            Volumen de {usuario.nombre}
+          </label>
+          <input
+            id={`volume-${usuario.uid}`}
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={volumePercent}
+            onChange={(event) => onVolumeChange(Number(event.target.value) / 100)}
+            className="flex-1 h-1.5 cursor-pointer accent-[#818CF8]"
+            style={{ minWidth: 0 }}
+          />
+          <span
+            className="text-[10px] font-medium tabular-nums w-9 text-right flex-none"
+            style={{ color: isSilent ? '#F87171' : '#64748B' }}
+          >
+            {volumePercent}%
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -1031,6 +1094,7 @@ export default function RoomPage() {
   );
 
   const speakingUids = useSpeakingDetection(speakingSources);
+  const { getVolume, setVolume } = useParticipantVolumes();
 
   useEffect(() => {
     roomSoundsReadyRef.current = false;
@@ -1362,6 +1426,7 @@ export default function RoomPage() {
               <VideoStage
                 items={gridItems}
                 speakingUids={speakingUids}
+                getVolume={getVolume}
                 onToggleScreenFocus={toggleScreenFocus}
               />
             )}
@@ -1417,6 +1482,8 @@ export default function RoomPage() {
                           usuario={u}
                           isYou={u.uid === myUid}
                           isHost={u.uid === sala.creadorUid}
+                          volume={u.uid === myUid ? undefined : getVolume(u.uid)}
+                          onVolumeChange={u.uid === myUid ? undefined : (value) => setVolume(u.uid, value)}
                         />
                       ))
                     )}
