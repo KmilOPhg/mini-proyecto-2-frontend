@@ -206,11 +206,13 @@ function VideoTile({
   muted,
   volume = 1,
   objectFit = 'cover',
+  hidden = false,
 }: {
   stream: MediaStream;
   muted: boolean;
   volume?: number;
   objectFit?: 'cover' | 'contain';
+  hidden?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -283,7 +285,8 @@ function VideoTile({
       autoPlay
       playsInline
       muted={muted}
-      className={`absolute inset-0 w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+      aria-hidden={hidden}
+      className={`absolute inset-0 w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'}${hidden ? ' opacity-0 pointer-events-none' : ''}`}
     />
   );
 }
@@ -361,13 +364,22 @@ function ParticipantTile({
         />
       )}
 
-      {/* Video stream */}
-      {stream && (
+      {/* Video stream — oculto cuando la cámara está apagada, pero activo para audio remoto */}
+      {stream && showVideo && (
         <VideoTile
           stream={stream}
           muted={isYou}
           volume={isYou ? 1 : volume}
           objectFit={objectFit}
+        />
+      )}
+      {stream && !showVideo && !isYou && (
+        <VideoTile
+          stream={stream}
+          muted={false}
+          volume={volume}
+          objectFit={objectFit}
+          hidden
         />
       )}
 
