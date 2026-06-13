@@ -320,7 +320,7 @@ function ParticipantTile({
   const gradient = participantGradientFromUid(usuario.uid);
   const avatarSize = compact ? 44 : 64;
   const showVideo = !!stream && !videoMuted;
-  const tileBackground = isScreenShare && showVideo ? '#0B1220' : gradient;
+  const tileBackground = showVideo ? '#0B1220' : gradient;
 
   const tileStyle = {
     background: tileBackground,
@@ -459,7 +459,7 @@ function renderParticipantTile(
     onToggleFocus?: () => void;
   } = {},
 ) {
-  const objectFit = item.isScreenShare ? 'contain' : 'cover';
+  const objectFit = 'contain';
   return (
     <ParticipantTile
       key={`${item.uid}-${item.streamVersion}`}
