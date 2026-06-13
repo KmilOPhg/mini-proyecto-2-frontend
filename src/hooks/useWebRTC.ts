@@ -13,6 +13,11 @@ export type RemotePeerState = {
   streamVersion: number;
 };
 
+export type MediaJoinPreferences = {
+  enableAudio: boolean;
+  enableVideo: boolean;
+};
+
 export type UseWebRTCReturn = {
   localStream: MediaStream | null;
   screenStream: MediaStream | null;
@@ -61,19 +66,45 @@ function isStreamLive(stream: MediaStream | null): boolean {
   return tracks.length > 0 && tracks.some((t) => t.readyState === 'live');
 }
 
-async function acquireUserMedia(): Promise<MediaStream | null> {
+async function acquireUserMedia(preferences?: MediaJoinPreferences): Promise<MediaStream | null> {
+  const prefs = preferences ?? { enableAudio: true, enableVideo: true };
+  if (!prefs.enableAudio && !prefs.enableVideo) return null;
+
   const secureError = mediaSecureContextError();
   if (secureError) throw new Error(secureError);
 
   try {
-    return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    return await navigator.mediaDevices.getUserMedia({
+      audio: prefs.enableAudio,
+      video: prefs.enableVideo,
+    });
   } catch {
-    try {
-      return await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-    } catch {
-      return null;
+    if (prefs.enableAudio && prefs.enableVideo) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      } catch {
+        try {
+          return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch {
+          return null;
+        }
+      }
     }
+    return null;
   }
+}
+
+function resolveInitialMediaState(
+  preferences: MediaJoinPreferences,
+  stream: MediaStream | null,
+): { audioMuted: boolean; videoMuted: boolean } {
+  const hasLiveAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
+  const hasLiveVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live'));
+
+  return {
+    audioMuted: !preferences.enableAudio || !hasLiveAudio,
+    videoMuted: !preferences.enableVideo || !hasLiveVideo,
+  };
 }
 
 async function fetchIceServers(): Promise<IceServerConfig[]> {
@@ -91,12 +122,13 @@ export function useWebRTC(
   salaId: string | undefined,
   jwtToken: string | null,
   myUid: string,
+  mediaPreferences: MediaJoinPreferences | null = null,
 ): UseWebRTCReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, RemotePeerState>>(new Map());
-  const [audioMuted, setAudioMuted] = useState(false);
-  const [videoMuted, setVideoMuted] = useState(false);
+  const [audioMuted, setAudioMuted] = useState(true);
+  const [videoMuted, setVideoMuted] = useState(true);
   const [sharingScreen, setSharingScreen] = useState(false);
   const [webrtcReady, setWebrtcReady] = useState(false);
   const [webrtcError, setWebrtcError] = useState<string | null>(null);
@@ -114,6 +146,8 @@ export function useWebRTC(
   const sharingPeersRef = useRef<Set<string>>(new Set());
   const myUidRef = useRef(myUid);
   myUidRef.current = myUid;
+  const mediaPreferencesRef = useRef<MediaJoinPreferences | null>(mediaPreferences);
+  mediaPreferencesRef.current = mediaPreferences;
 
   type AckPeer = {
     peerId: string;
@@ -337,9 +371,10 @@ export function useWebRTC(
   }, [recallPeersWithVideo, salaId]);
 
   useEffect(() => {
-    if (!salaId || !jwtToken) return;
+    if (!salaId || !jwtToken || !mediaPreferences) return;
 
     const token = jwtToken;
+    const joinPreferences = mediaPreferences;
     let destroyed = false;
 
     async function init() {
@@ -347,7 +382,7 @@ export function useWebRTC(
 
       let stream: MediaStream | null = null;
       try {
-        stream = await acquireUserMedia();
+        stream = await acquireUserMedia(joinPreferences);
       } catch (err) {
         if (!destroyed) {
           setWebrtcError(err instanceof Error ? err.message : 'No se pudo acceder a cámara o micrófono');
@@ -359,8 +394,18 @@ export function useWebRTC(
         return;
       }
 
+      const initialMedia = resolveInitialMediaState(joinPreferences, stream);
+      stream?.getAudioTracks().forEach((track) => {
+        track.enabled = !initialMedia.audioMuted;
+      });
+      stream?.getVideoTracks().forEach((track) => {
+        track.enabled = !initialMedia.videoMuted;
+      });
+
       localStreamRef.current = stream;
       setLocalStream(stream);
+      setAudioMuted(initialMedia.audioMuted);
+      setVideoMuted(initialMedia.videoMuted);
 
       const { hostname, port, secure, peerClientPath } = parseWebRtcUrl();
       const peer = new Peer({
@@ -404,6 +449,11 @@ export function useWebRTC(
                 return;
               }
               setWebrtcReady(true);
+              sock.emit('media:update', {
+                salaId,
+                audioMuted: initialMedia.audioMuted,
+                videoMuted: initialMedia.videoMuted,
+              });
               connectToAckPeers(ack.peers ?? []);
             },
           );
@@ -511,11 +561,11 @@ export function useWebRTC(
       setScreenStream(null);
       setRemoteStreams(new Map());
       setWebrtcReady(false);
-      setAudioMuted(false);
-      setVideoMuted(false);
+      setAudioMuted(true);
+      setVideoMuted(true);
       setSharingScreen(false);
     };
-  }, [salaId, jwtToken, myUid, callPeer, handleIncomingCall, registerPeerMapping, setRemote, connectToAckPeers, callRejoinedPeerWithScreen]);
+  }, [salaId, jwtToken, myUid, mediaPreferences, callPeer, handleIncomingCall, registerPeerMapping, setRemote, connectToAckPeers, callRejoinedPeerWithScreen]);
 
   const rejoinWebRtcSala = useCallback(() => {
     const sock = socketRef.current;
@@ -535,14 +585,26 @@ export function useWebRTC(
     const resumeMedia = async () => {
       if (document.visibilityState !== 'visible') return;
 
+      const prefs = mediaPreferencesRef.current;
+      if (!prefs || (!prefs.enableAudio && !prefs.enableVideo)) return;
+
       if (!isStreamLive(localStreamRef.current)) {
         localStreamRef.current?.getTracks().forEach((t) => t.stop());
         localStreamRef.current = null;
         try {
-          const stream = await acquireUserMedia();
+          const stream = await acquireUserMedia(prefs);
           if (stream) {
+            const initialMedia = resolveInitialMediaState(prefs, stream);
+            stream.getAudioTracks().forEach((track) => {
+              track.enabled = !initialMedia.audioMuted;
+            });
+            stream.getVideoTracks().forEach((track) => {
+              track.enabled = !initialMedia.videoMuted;
+            });
             localStreamRef.current = stream;
             setLocalStream(stream);
+            setAudioMuted(initialMedia.audioMuted);
+            setVideoMuted(initialMedia.videoMuted);
           }
         } catch {
           // Permisos o contexto seguro; se reintenta al activar cámara.

@@ -6,7 +6,7 @@ import type { MensajePublico, SalaPublica } from '../services/api';
 import { useRoomChat } from '../hooks/useRoomChat';
 import { useParticipantVolumes } from '../hooks/useParticipantVolumes';
 import { useSpeakingDetection } from '../hooks/useSpeakingDetection';
-import { useWebRTC } from '../hooks/useWebRTC';
+import { useWebRTC, type MediaJoinPreferences } from '../hooks/useWebRTC';
 import { useAuthStore } from '../store/authStore';
 import {
   salaShareCode, salaRoomPathFromSala, salaShareUrl, isCodigoInvitacion,
@@ -19,6 +19,7 @@ import { preloadRoomSounds, roomSounds } from '../utils/roomSounds';
 import ComingSoonButton from '../components/ComingSoonButton';
 import LeaveRoomModal from '../components/LeaveRoomModal';
 import EditRoomModal from '../components/EditRoomModal';
+import MediaJoinModal from '../components/MediaJoinModal';
 import { usePageTitle } from '../hooks/usePageTitle';
 import {
   IconArrowLeft, IconClock, IconExpand, IconLayoutGrid, IconLink,
@@ -919,6 +920,9 @@ export default function RoomPage() {
   const [elapsed, setElapsed] = useState('00:00');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showEditRoomModal, setShowEditRoomModal] = useState(false);
+  const [showMediaJoinModal, setShowMediaJoinModal] = useState(false);
+  const [mediaPreferences, setMediaPreferences] = useState<MediaJoinPreferences | null>(null);
+  const [joiningMedia, setJoiningMedia] = useState(false);
   const [focusedScreenUid, setFocusedScreenUid] = useState<string | null>(null);
 
   const skipSalaTerminadaRef = useRef(false);
@@ -956,14 +960,45 @@ export default function RoomPage() {
     videoMuted,
     sharingScreen,
     webrtcError,
+    webrtcReady,
     toggleAudio,
     toggleVideo,
     toggleScreen,
-  } = useWebRTC(salaId, jwtToken ?? null, myUid);
+  } = useWebRTC(salaId, jwtToken ?? null, myUid, mediaPreferences);
 
   useEffect(() => {
     if (webrtcError) toast.error(`WebRTC: ${webrtcError}`);
   }, [webrtcError]);
+
+  useEffect(() => {
+    setMediaPreferences(null);
+    setShowMediaJoinModal(false);
+    setJoiningMedia(false);
+  }, [routeCode]);
+
+  useEffect(() => {
+    if (!loading && sala && !error && mediaPreferences === null && !joiningMedia) {
+      setShowMediaJoinModal(true);
+    }
+  }, [loading, sala, error, mediaPreferences, joiningMedia]);
+
+  useEffect(() => {
+    if (!joiningMedia) return;
+    if (webrtcReady) {
+      setJoiningMedia(false);
+      setShowMediaJoinModal(false);
+      return;
+    }
+    if (webrtcError) {
+      setJoiningMedia(false);
+      setShowMediaJoinModal(false);
+    }
+  }, [joiningMedia, webrtcReady, webrtcError]);
+
+  function handleMediaJoinChoice(preferences: MediaJoinPreferences) {
+    setMediaPreferences(preferences);
+    setJoiningMedia(true);
+  }
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1621,6 +1656,13 @@ export default function RoomPage() {
         isHost={isHost}
         onLeaveRoom={handleLeaveRoom}
         onEndSession={handleEndSession}
+      />
+
+      <MediaJoinModal
+        open={showMediaJoinModal}
+        salaNombre={sala.nombre}
+        loading={joiningMedia}
+        onChoose={handleMediaJoinChoice}
       />
 
       {isHost && (
